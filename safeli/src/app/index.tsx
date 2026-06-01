@@ -80,60 +80,60 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {locationReady && userLocation ? (
-        <View style={StyleSheet.absoluteFillObject}>
-          <MapRoute userLocation={userLocation} destination={destination} route={route} />
-        </View>
-      ) : (
-        <View style={styles.mapLoading}>
-          <ActivityIndicator size="large" color="#1D3557" />
-          <Text style={styles.mapLoadingText}>Obteniendo tu ubicación...</Text>
-        </View>
-      )}
-
-      {/* Barra de búsqueda */}
-      <View style={styles.searchPanel}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="¿A dónde vas?"
-          placeholderTextColor="#999"
-          value={searchText}
-          onChangeText={setSearchText}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        <TouchableOpacity
-          style={[styles.searchButton, loading && styles.searchButtonDisabled]}
-          onPress={handleSearch}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.searchButtonText}>Ir</Text>
-          )}
-        </TouchableOpacity>
+  <View style={styles.container}>
+    {locationReady && userLocation ? (
+      <View style={StyleSheet.absoluteFillObject}>
+        <MapRoute userLocation={userLocation} destination={destination} route={route} />
       </View>
+    ) : (
+      <View style={styles.mapLoading}>
+        <ActivityIndicator size="large" color="#1D3557" />
+        <Text style={styles.mapLoadingText}>Obteniendo tu ubicación...</Text>
+      </View>
+    )}
 
-      {/* Info de ruta */}
-      {route && (
-        <View style={styles.infoPanel}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>⏱ Duración</Text>
-              <Text style={styles.infoValue}>{route.durationText}</Text>
-            </View>
-            <View style={styles.infoDivider} />
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>📍 Distancia</Text>
-              <Text style={styles.infoValue}>{route.distanceText}</Text>
-            </View>
+    {/* Barra de búsqueda */}
+    <View style={styles.searchPanel}>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="¿A dónde vas?"
+        placeholderTextColor="#999"
+        value={searchText}
+        onChangeText={setSearchText}
+        onSubmitEditing={handleSearch}
+        returnKeyType="search"
+      />
+      <TouchableOpacity
+        style={[styles.searchButton, loading && styles.searchButtonDisabled]}
+        onPress={handleSearch}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text style={styles.searchButtonText}>Ir</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+
+    {/* Info de ruta */}
+    {route && (
+      <View style={styles.infoPanel}>
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>⏱ Duración</Text>
+            <Text style={styles.infoValue}>{route.durationText}</Text>
+          </View>
+          <View style={styles.infoDivider} />
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>📍 Distancia</Text>
+            <Text style={styles.infoValue}>{route.distanceText}</Text>
           </View>
         </View>
-      )}
-    </View>
-  );
+      </View>
+    )}
+  </View>
+);
 }
 
 const styles = StyleSheet.create({
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   searchPanel: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 60 : 40,
-    left: 16,
+    left: 60,
     right: 16,
     flexDirection: 'row',
     backgroundColor: '#fff',
