@@ -29,7 +29,8 @@ function decodePolyline(encoded: string): LatLng[] {
     } while (b >= 0x20);
     lat += result & 1 ? ~(result >> 1) : result >> 1;
 
-    shift = 0; result = 0;
+    shift = 0; 
+    result = 0;
     do {
       b = encoded.charCodeAt(index++) - 63;
       result |= (b & 0x1f) << shift;
@@ -58,77 +59,48 @@ function formatDistance(meters: number): string {
 
 // ─── Geocoding (Google, funciona en ambas plataformas) ───────────────────────
 export async function geocodeAddress(address: string): Promise<LatLng | null> {
-  // const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_API_KEY}&language=es`;
-  // const res = await fetch(url);
-  // const data = await res.json();
-  // if (data.status !== 'OK' || !data.results[0]) return null;
-  // const { lat, lng } = data.results[0].geometry.location;
-  // return { latitude: lat, longitude: lng };
-try {
-    const url =
-      `https://maps.googleapis.com/maps/api/geocode/json` +
-      `?address=${encodeURIComponent(address)}` +
-      `&language=es` +
-      `&region=ar` +
-      `&key=${GOOGLE_API_KEY}`;
+  try {
+      const url =
+        `https://maps.googleapis.com/maps/api/geocode/json` +
+        `?address=${encodeURIComponent(address)}` +
+        `&language=es` +
+        `&region=ar` +
+        `&key=${GOOGLE_API_KEY}`;
 
-    console.log('[GEOCODE] Buscando:', address);
+      console.log('[GEOCODE] Buscando:', address);
 
-    const response = await fetch(url);
-    const data = await response.json();
+      const response = await fetch(url);
+      const data = await response.json();
 
-    console.log('[GEOCODE] Status:', data.status);
+      console.log('[GEOCODE] Status:', data.status);
 
-    if (data.status !== 'OK' || !data.results?.length) {
-      console.warn('[GEOCODE] Sin resultados:', address);
+      if (data.status !== 'OK' || !data.results?.length) {
+        console.warn('[GEOCODE] Sin resultados:', address);
+        return null;
+      }
+
+      const result = data.results[0];
+
+      const location = result.geometry.location;
+
+      console.log('[GEOCODE] Resultado:', {
+        direccion: result.formatted_address,
+        lat: location.lat,
+        lng: location.lng,
+      });
+
+      return {
+        latitude: location.lat,
+        longitude: location.lng,
+      };
+    } catch (error) {
+      console.error('[GEOCODE] Error:', error);
       return null;
     }
-
-    const result = data.results[0];
-
-    const location = result.geometry.location;
-
-    console.log('[GEOCODE] Resultado:', {
-      direccion: result.formatted_address,
-      lat: location.lat,
-      lng: location.lng,
-    });
-
-    return {
-      latitude: location.lat,
-      longitude: location.lng,
-    };
-  } catch (error) {
-    console.error('[GEOCODE] Error:', error);
-    return null;
-  }
 }
 
 // ─── Ruta en MOBILE: Google Directions API ───────────────────────────────────
 async function getRouteGoogle(origin: LatLng, destination: LatLng): Promise<RouteResult | null> {
-  // const url =
-  //   `https://maps.googleapis.com/maps/api/directions/json` +
-  //   `?origin=${origin.latitude},${origin.longitude}` +
-  //   `&destination=${destination.latitude},${destination.longitude}` +
-  //   `&key=${GOOGLE_API_KEY}` +
-  //   `&mode=walking` +
-  //   `&language=es` +
-  //   `&units=metric` + //1 min en vez de 60 segundos, 1 km en vez de 1000 m
-  //   `&alternatives=false` + // Solo la ruta más rápida
-  //   `&region=ar`;
-
-
-  // const res = await fetch(url);
-  // const data = await res.json();
-  // if (data.status !== 'OK' || !data.routes[0]) return null;
-
-  // const leg = data.routes[0].legs[0];
-  // return {
-  //   polylinePoints: decodePolyline(data.routes[0].overview_polyline.points),
-  //   durationText: leg.duration.text,   // Google ya devuelve el texto correcto
-  //   distanceText: leg.distance.text,
-  //   durationSeconds: leg.duration.value,
-  // };
   try {
     console.log('[GOOGLE ROUTE] Origen:', origin);
     console.log('[GOOGLE ROUTE] Destino:', destination);
