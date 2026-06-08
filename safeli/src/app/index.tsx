@@ -1,19 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Keyboard,
-  Platform,
-  Alert,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Keyboard, Platform, Alert} from 'react-native';
 import * as Location from 'expo-location';
 import { geocodeAddress, getRoute, LatLng, RouteResult } from '../services/googleApi';
-
-// Expo resuelve automáticamente MapRoute.native.tsx en mobile y MapRoute.web.tsx en web
 import MapRoute from '../components/MapRoute';
 
 export default function HomeScreen() {

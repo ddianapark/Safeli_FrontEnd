@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform } from 'react-native'; //detectar el sistema operativo o dispositivo en el que se está ejecutando tu aplicación
 
 const GOOGLE_API_KEY = 'AIzaSyCdskEeFYDGRFyPSdaJizI_Y_8jaDkW_O4';
 
@@ -15,10 +15,11 @@ export interface RouteResult {
   durationSeconds: number;
 }
 
-// ─── Decodificador de Google Encoded Polyline ────────────────────────────────
 function decodePolyline(encoded: string): LatLng[] {
   const points: LatLng[] = [];
-  let index = 0, lat = 0, lng = 0;
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
 
   while (index < encoded.length) {
     let b: number, shift = 0, result = 0;
@@ -57,7 +58,7 @@ function formatDistance(meters: number): string {
   return `${meters} m`;
 }
 
-// ─── Geocoding (Google, funciona en ambas plataformas) ───────────────────────
+// Geocoding (Google, funciona en ambas plataformas), convierte el texto en un punto del mapa
 export async function geocodeAddress(address: string): Promise<LatLng | null> {
   try {
       const url =
@@ -99,7 +100,7 @@ export async function geocodeAddress(address: string): Promise<LatLng | null> {
     }
 }
 
-// ─── Ruta en MOBILE: Google Directions API ───────────────────────────────────
+// Ruta en MOBILE: Google Directions API (requiere API key, funciona en ambas plataformas EN AUTO, NO CAMINANDO pero es más común en mobile)
 async function getRouteGoogle(origin: LatLng, destination: LatLng): Promise<RouteResult | null> {
   try {
     console.log('[GOOGLE ROUTE] Origen:', origin);
@@ -155,7 +156,7 @@ async function getRouteGoogle(origin: LatLng, destination: LatLng): Promise<Rout
   }
 }
 
-// ─── Ruta en WEB: OSRM (sin CORS, sin API key) ───────────────────────────────
+// Ruta en WEB: OSRM (sin CORS, sin API key)
 async function getRouteOSRM(origin: LatLng, destination: LatLng): Promise<RouteResult | null> {
   const url =
     `https://routing.openstreetmap.de/routed-foot/route/v1/driving/` + 
@@ -181,7 +182,7 @@ async function getRouteOSRM(origin: LatLng, destination: LatLng): Promise<RouteR
 }
 
 
-// ─── Exportado: elige automáticamente según plataforma ───────────────────────
+// se fija si es web (OpenStreetMap) o mobile (GoogleMapsApi)
 export async function getRoute(origin: LatLng, destination: LatLng): Promise<RouteResult | null> {
   if (Platform.OS === 'web') {
     return getRouteOSRM(origin, destination);
