@@ -1,170 +1,310 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Keyboard, Platform, Alert} from 'react-native';
-import * as Location from 'expo-location';
-import { geocodeAddress, getRoute, LatLng, RouteResult } from '../services/googleApi';
-import MapRoute from '../components/MapRoute';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Image,
+} from 'react-native';
+import { router } from 'expo-router';
+import { useAuth } from '../context/AuthContext';
 
-export default function HomeScreen() {
-  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
-  const [destination, setDestination] = useState<LatLng | null>(null);
-  const [searchText, setSearchText] = useState('');
-  const [route, setRoute] = useState<RouteResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [locationReady, setLocationReady] = useState(false);
+export default function LoginScreen() {
+  const { login } = useAuth();
 
-  useEffect(() => {
-    (async () => {
-      if (Platform.OS === 'web') {
-        if (!navigator.geolocation) {
-          Alert.alert('Error', 'Tu browser no soporta geolocalización.');
-          return;
-        }
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-            setLocationReady(true);
-          },
-          () => Alert.alert('Permiso denegado', 'Necesitamos tu ubicación para calcular la ruta.')
-        );
-      } else {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permiso denegado', 'Necesitamos acceso a tu ubicación para calcular la ruta.');
-          return;
-        }
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-        setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-        setLocationReady(true);
-      }
-    })();
-  }, []);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSearch = async () => {
-    if (!searchText.trim() || !userLocation) return;
-    Keyboard.dismiss();
-    setLoading(true);
-    setRoute(null);
-    setDestination(null);
+  const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
 
+  const validate = (): boolean => {
+    const newErrors: { username?: string; password?: string } = {};
+    if (!username.trim()) newErrors.username = 'Ingresá tu usuario';
+    if (!password) newErrors.password = 'Ingresá tu contraseña';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleLogin = async () => {
+    if (!validate()) return;
+    setIsLoading(true);
     try {
-      const destCoords = await geocodeAddress(searchText);
-      if (!destCoords) {
-        Alert.alert('No encontrado', 'No pudimos encontrar esa ubicación.');
-        return;
-      }
-      setDestination(destCoords);
-
-      const routeResult = await getRoute(userLocation, destCoords);
-      if (!routeResult) {
-        Alert.alert('Sin ruta', 'No pudimos calcular una ruta hacia ese destino.');
-        return;
-      }
-      setRoute(routeResult);
-    } catch {
-      Alert.alert('Error', 'Ocurrió un error. Verificá tu conexión.');
+      await login({ username: username.trim(), password, rememberMe });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Ocurrió un error. Intentá de nuevo.';
+      Alert.alert('Error al iniciar sesión', message);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-  <View style={styles.container}>
-    {locationReady && userLocation ? (
-      <View style={StyleSheet.absoluteFillObject}>
-        <MapRoute userLocation={userLocation} destination={destination} route={route} />
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <Image
+          source={require('../../assets/images/logo.png')} // TODO: adjust path to your logo
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
-    ) : (
-      <View style={styles.mapLoading}>
-        <ActivityIndicator size="large" color="#1D3557" />
-        <Text style={styles.mapLoadingText}>Obteniendo tu ubicación...</Text>
-      </View>
-    )}
 
-    {/* Barra de búsqueda */}
-    <View style={styles.searchPanel}>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="¿A dónde vas?"
-        placeholderTextColor="#999"
-        value={searchText}
-        onChangeText={setSearchText}
-        onSubmitEditing={handleSearch}
-        returnKeyType="search"
-      />
-      <TouchableOpacity
-        style={[styles.searchButton, loading && styles.searchButtonDisabled]}
-        onPress={handleSearch}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.searchButtonText}>Ir</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+      {/* Body */}
+      <View style={styles.body}>
+        <Text style={styles.title}>¡Bienvenido/a!</Text>
 
-    {/* Info de ruta */}
-    {route && (
-      <View style={styles.infoPanel}>
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>⏱ Duración</Text>
-            <Text style={styles.infoValue}>{route.durationText}</Text>
+        {/* Username */}
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={[styles.input, errors.username ? styles.inputError : null]}
+            placeholder="Usuario"
+            placeholderTextColor="#A0AEC0"
+            value={username}
+            onChangeText={(text) => {
+              setUsername(text);
+              if (errors.username) setErrors((prev) => ({ ...prev, username: undefined }));
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
+        </View>
+
+        {/* Password */}
+        <View style={styles.inputWrapper}>
+          <View style={[styles.passwordContainer, errors.password ? styles.inputError : null]}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Contraseña"
+              placeholderTextColor="#A0AEC0"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+              }}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword((prev) => !prev)}
+              style={styles.eyeButton}
+              accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            >
+              <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+            </TouchableOpacity>
           </View>
-          <View style={styles.infoDivider} />
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>📍 Distancia</Text>
-            <Text style={styles.infoValue}>{route.distanceText}</Text>
+          {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+        </View>
+
+        {/* Forgot password */}
+        <TouchableOpacity
+          onPress={() => router.push('/forgot-password')}
+          style={styles.forgotButton}
+        >
+          <Text style={styles.forgotText}>¿Te olvidaste la contraseña?</Text>
+        </TouchableOpacity>
+
+        {/* Remember me */}
+        <TouchableOpacity
+          style={styles.rememberMeRow}
+          onPress={() => setRememberMe((prev) => !prev)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+            {rememberMe && <Text style={styles.checkmark}>✓</Text>}
           </View>
+          <Text style={styles.rememberMeText}>Mantenerme iniciado/a</Text>
+        </TouchableOpacity>
+
+        {/* Login button */}
+        <TouchableOpacity
+          style={[styles.primaryButton, isLoading && styles.primaryButtonDisabled]}
+          onPress={handleLogin}
+          disabled={isLoading}
+          activeOpacity={0.8}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.primaryButtonText}>Iniciar Sesión</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Sign up link */}
+        <View style={styles.signUpRow}>
+          <Text style={styles.signUpPrompt}>¿Todavía no tenés una cuenta? </Text>
+          <TouchableOpacity onPress={() => router.push('/signup')}>
+            <Text style={styles.signUpLink}>Registrate</Text>
+          </TouchableOpacity>
         </View>
       </View>
-    )}
-  </View>
-);
+
+      {/* Footer bar */}
+      <View style={styles.footer} />
+    </ScrollView>
+  );
 }
 
+const SAFELI_BLUE = '#1A3FA8';
+const SAFELI_LIGHT_BLUE = '#D6E4F7';
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1FAEE' },
-  mapLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  mapLoadingText: { color: '#1D3557', fontSize: 15, fontWeight: '500' },
-  searchPanel: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
-    left: 60,
-    right: 16,
+  container: {
+    flexGrow: 1,
+    backgroundColor: '#F5F8FF',
+  },
+  header: {
+    backgroundColor: SAFELI_BLUE,
+    paddingTop: 60,
+    paddingBottom: 30,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 120,
+    height: 60,
+  },
+  body: {
+    flex: 1,
+    paddingHorizontal: 28,
+    paddingTop: 32,
+    paddingBottom: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A202C',
+    textAlign: 'center',
+    marginBottom: 28,
+  },
+  inputWrapper: {
+    marginBottom: 14,
+  },
+  input: {
+    backgroundColor: SAFELI_LIGHT_BLUE,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: '#1A202C',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  inputError: {
+    borderColor: '#E53E3E',
+  },
+  passwordContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-    overflow: 'hidden',
+    alignItems: 'center',
+    backgroundColor: SAFELI_LIGHT_BLUE,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  searchInput: { flex: 1, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: '#1D3557' },
-  searchButton: { backgroundColor: '#1D3557', paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
-  searchButtonDisabled: { opacity: 0.6 },
-  searchButtonText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  infoPanel: {
-    position: 'absolute',
-    bottom: 40,
-    left: 16,
-    right: 16,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 8,
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: '#1A202C',
   },
-  infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  infoItem: { alignItems: 'center', gap: 4 },
-  infoLabel: { fontSize: 13, color: '#888', fontWeight: '500' },
-  infoValue: { fontSize: 20, fontWeight: '700', color: '#1D3557' },
-  infoDivider: { width: 1, height: 40, backgroundColor: '#E0E0E0' },
+  eyeButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  eyeIcon: {
+    fontSize: 18,
+  },
+  errorText: {
+    color: '#E53E3E',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  forgotButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  forgotText: {
+    color: SAFELI_BLUE,
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+  rememberMeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: SAFELI_BLUE,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: SAFELI_BLUE,
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  rememberMeText: {
+    fontSize: 14,
+    color: '#4A5568',
+  },
+  primaryButton: {
+    backgroundColor: SAFELI_BLUE,
+    borderRadius: 25,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: SAFELI_BLUE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.7,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  signUpRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signUpPrompt: {
+    color: '#4A5568',
+    fontSize: 14,
+  },
+  signUpLink: {
+    color: SAFELI_BLUE,
+    fontSize: 14,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  footer: {
+    backgroundColor: SAFELI_BLUE,
+    height: 12,
+  },
 });
