@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContext';
 
 interface FormFields {
   firstName: string;
@@ -122,10 +122,15 @@ export default function SignUpScreen() {
     }
   };
 
-  const onDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
+  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (event.type === 'set' && selectedDate) {
       updateField('birthDate', selectedDate);
+    } else if (event.type === 'dismissed') {
+      setShowDatePicker(false);
     }
   };
 
@@ -140,7 +145,7 @@ export default function SignUpScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Image
-          source={require('../../assets/images/logo.png')} // TODO: adjust path to your logo
+          source={require('../../assets/images/safeli.png')} // TODO: adjust path to your logo
           style={styles.logo}
           resizeMode="contain"
         />
@@ -204,28 +209,29 @@ export default function SignUpScreen() {
         </View>
 
         {/* Fecha de nacimiento */}
-        <View style={styles.inputWrapper}>
-          <TouchableOpacity
-            style={[styles.dateInput, errors.birthDate && styles.inputError]}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={form.birthDate ? styles.dateText : styles.datePlaceholder}>
-              {form.birthDate ? formatDate(form.birthDate) : 'Fecha de nacimiento'}
-            </Text>
-            <Text style={styles.calendarIcon}>📅</Text>
-          </TouchableOpacity>
-          {errors.birthDate ? <Text style={styles.errorText}>{errors.birthDate}</Text> : null}
-        </View>
+<View style={styles.inputWrapper}>
+  <TouchableOpacity 
+    style={[styles.dateInput, errors.birthDate && styles.inputError]} 
+    onPress={() => setShowDatePicker(true)} 
+    activeOpacity={0.7}
+  >
+    <Text style={form.birthDate ? styles.dateText : styles.datePlaceholder}>
+      {form.birthDate ? formatDate(form.birthDate) : 'Fecha de nacimiento'}
+    </Text>
+    <Text style={styles.calendarIcon}>📅</Text>
+  </TouchableOpacity>
+  {errors.birthDate ? <Text style={styles.errorText}>{errors.birthDate}</Text> : null}
+</View>
 
-        {showDatePicker && (
-          <DateTimePicker
-            value={form.birthDate ?? new Date(2000, 0, 1)}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={onDateChange}
-            maximumDate={new Date()}
-            locale="es-AR"
+  {/* Date Picker Modal/Overlay */}
+  {showDatePicker && (
+    <DateTimePicker 
+      value={form.birthDate ?? new Date(2000, 0, 1)} 
+      mode="date" 
+      display={Platform.OS === 'ios' ? 'spinner' : 'default'} 
+      onChange={onDateChange} 
+            maximumDate={new Date()} 
+            locale="es-AR" 
           />
         )}
 

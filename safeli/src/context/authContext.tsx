@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { router } from 'expo-router';
+import { router, RelativePathString } from 'expo-router';
 import { authService } from '../services/authService';
 import { tokenStorage } from '../services/tokenStorage';
+import { authEvents } from '../app/apiClient';
 import { AuthContextType, LoginRequest, SignUpRequest, User } from '../types/auth.types';
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -10,7 +11,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // On app start: check if a valid token exists (and "remember me" is active)
+  // ─── Force-logout listener ──────────────────────────────────────────────────
+  // Cuando el refresh token expira, apiClient emite este evento.
+  // Limpiamos el estado sin intentar llamar al backend (ya sabemos que falló).
+  useEffect(() => {
+    const unsubscribe = authEvents.onForceLogout(async () => {
+      setUser(null);
+      router.replace('/');
+    });
+    return unsubscribe;
+  }, []);
+
+  // ─── Bootstrap ──────────────────────────────────────────────────────────────
+  // Al iniciar la app: si hay token + rememberMe, intentamos rehydratar el usuario
+  // con GET /auth/me. Si falla (token vencido, red, etc.) limpiamos todo.
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
@@ -18,14 +32,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const accessToken = await tokenStorage.getAccessToken();
 
         if (rememberMe && accessToken) {
-          // TODO: Optionally call a /auth/me endpoint to rehydrate user data
-          // For now we keep the session alive without re-fetching the user object
+          // El interceptor adjuntará el Bearer token automáticamente
+          const me = await authService.getMe();
+          setUser(me);
         } else if (!rememberMe) {
-          // "Remember me" was not checked — clear tokens on app restart
+          // "Recordarme" no estaba activo — la sesión no persiste entre reinicios
           await tokenStorage.clearTokens();
         }
       } catch {
+        // Token inválido o vencido (el interceptor ya intentó el refresh)
         await tokenStorage.clearTokens();
+        await tokenStorage.clearRememberMe();
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -34,12 +52,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     bootstrapAuth();
   }, []);
 
+  // ─── Auth actions ────────────────────────────────────────────────────────────
   const login = useCallback(async (data: LoginRequest): Promise<void> => {
     const response = await authService.login(data);
     await tokenStorage.saveTokens(response.accessToken, response.refreshToken);
     await tokenStorage.setRememberMe(data.rememberMe);
     setUser(response.user);
-    router.replace('/(tabs)');
+    router.replace('/home' as RelativePathString);
   }, []);
 
   const signUp = useCallback(async (data: SignUpRequest): Promise<void> => {
@@ -47,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await tokenStorage.saveTokens(response.accessToken, response.refreshToken);
     await tokenStorage.setRememberMe(false);
     setUser(response.user);
-    router.replace('/(tabs)');
+    router.replace('/home' as RelativePathString);
   }, []);
 
   const logout = useCallback(async (): Promise<void> => {
@@ -57,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await authService.logout(refreshToken);
       }
     } catch {
-      // Even if the server call fails, we clear local state
+      // Si el server falla, igual limpiamos localmente
     } finally {
       await tokenStorage.clearTokens();
       await tokenStorage.clearRememberMe();

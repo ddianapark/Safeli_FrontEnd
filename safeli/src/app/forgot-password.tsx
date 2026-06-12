@@ -62,7 +62,7 @@ export default function ForgotPasswordScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Image
-          source={require('../../assets/images/logo.png')} // TODO: adjust path to your logo
+          source={require('../../assets/images/safeli.png')} // TODO: adjust path to your logo
           style={styles.logo}
           resizeMode="contain"
         />

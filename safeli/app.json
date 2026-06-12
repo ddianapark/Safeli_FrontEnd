@@ -7,10 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "safeli",
     "userInterfaceStyle": "automatic",
-   
     "ios": {
       "icon": "./assets/expo.icon",
-    "config": {
+      "config": {
         "googleMapsApiKey": "AIzaSyCdskEeFYDGRFyPSdaJizI_Y_8jaDkW_O4"
       }
     },
@@ -22,14 +21,14 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-    "config": {
+      "config": {
         "googleMaps": {
           "apiKey": "AIzaSyCdskEeFYDGRFyPSdaJizI_Y_8jaDkW_O4"
         }
       }
     },
     "web": {
-      "output": "single-page-app", 
+      "output": "single-page-app",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -41,7 +40,7 @@
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
-}
+          }
         }
       ],
       [
@@ -49,7 +48,9 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Esta app necesita tu ubicación para mostrarte en el mapa."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

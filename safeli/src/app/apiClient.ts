@@ -2,10 +2,30 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosE
 import { tokenStorage } from '../services/tokenStorage';
 import { AuthTokens } from '../types/auth.types';
 
-// TODO: Replace with your actual API base URL
 const BASE_URL = 'https://api.safeli.com';
 
-// Queue to hold failed requests while token is being refreshed
+// ─── Force-logout event bus ───────────────────────────────────────────────────
+// apiClient vive fuera del árbol de React, así que no puede llamar directamente
+// al AuthContext. Usamos un simple event emitter para desacoplarlo.
+// El AuthContext se suscribe a este evento y ejecuta el logout.
+type Listener = () => void;
+const forceLogoutListeners: Listener[] = [];
+
+export const authEvents = {
+  onForceLogout(listener: Listener): () => void {
+    forceLogoutListeners.push(listener);
+    // Devuelve una función de cleanup para usarla en useEffect
+    return () => {
+      const index = forceLogoutListeners.indexOf(listener);
+      if (index > -1) forceLogoutListeners.splice(index, 1);
+    };
+  },
+  emitForceLogout(): void {
+    forceLogoutListeners.forEach((listener) => listener());
+  },
+};
+
+// ─── Token refresh queue ──────────────────────────────────────────────────────
 interface FailedRequest {
   resolve: (value: string | null) => void;
   reject: (error: unknown) => void;
@@ -25,6 +45,7 @@ const processQueue = (error: unknown, token: string | null = null): void => {
   failedRequestsQueue = [];
 };
 
+// ─── Axios instance ───────────────────────────────────────────────────────────
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   timeout: 10000,
@@ -33,8 +54,7 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// ─── REQUEST INTERCEPTOR ──────────────────────────────────────────────────────
-// Attaches the access token to every outgoing request
+// ─── Request interceptor ──────────────────────────────────────────────────────
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const accessToken = await tokenStorage.getAccessToken();
@@ -46,17 +66,14 @@ apiClient.interceptors.request.use(
   (error: AxiosError) => Promise.reject(error)
 );
 
-// ─── RESPONSE INTERCEPTOR ─────────────────────────────────────────────────────
-// Catches 401 errors and attempts to refresh the token before retrying
+// ─── Response interceptor ─────────────────────────────────────────────────────
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // If the error is 401 and we haven't retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        // Another refresh is in progress — queue this request
         return new Promise((resolve, reject) => {
           failedRequestsQueue.push({ resolve, reject });
         })
@@ -79,7 +96,6 @@ apiClient.interceptors.response.use(
           throw new Error('No refresh token available');
         }
 
-        // TODO: Replace with your actual refresh token endpoint
         const response = await axios.post<AuthTokens>(`${BASE_URL}/auth/refresh`, {
           refreshToken,
         });
@@ -97,7 +113,9 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         await tokenStorage.clearTokens();
-        // The AuthContext will detect the missing token and redirect to login
+        await tokenStorage.clearRememberMe();
+        // ← Notifica al AuthContext para que limpie el estado y redirija al login
+        authEvents.emitForceLogout();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

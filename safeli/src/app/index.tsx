@@ -11,7 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContext';
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -54,7 +54,7 @@ export default function LoginScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Image
-          source={require('../../assets/images/logo.png')} // TODO: adjust path to your logo
+          source={require('../../assets/images/safeli.png')} // TODO: adjust path to your logo
           style={styles.logo}
           resizeMode="contain"
         />
