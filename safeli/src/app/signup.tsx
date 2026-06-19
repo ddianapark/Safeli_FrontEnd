@@ -14,6 +14,7 @@ import {
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useAuth } from '../context/authContext';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 interface FormFields {
   firstName: string;
@@ -209,30 +210,30 @@ export default function SignUpScreen() {
         </View>
 
         {/* Fecha de nacimiento */}
-<View style={styles.inputWrapper}>
-  <TouchableOpacity 
-    style={[styles.dateInput, errors.birthDate && styles.inputError]} 
-    onPress={() => setShowDatePicker(true)} 
-    activeOpacity={0.7}
-  >
-    <Text style={form.birthDate ? styles.dateText : styles.datePlaceholder}>
-      {form.birthDate ? formatDate(form.birthDate) : 'Fecha de nacimiento'}
-    </Text>
-    <Text style={styles.calendarIcon}>📅</Text>
-  </TouchableOpacity>
-  {errors.birthDate ? <Text style={styles.errorText}>{errors.birthDate}</Text> : null}
-</View>
+        <View style={styles.inputWrapper}>
+          <TouchableOpacity 
+            style={[styles.dateInput, errors.birthDate && styles.inputError]} 
+            onPress={() => setShowDatePicker(true)} 
+            activeOpacity={0.7}
+          >
+            <Text style={form.birthDate ? styles.dateText : styles.datePlaceholder}>
+              {form.birthDate ? formatDate(form.birthDate) : 'Fecha de nacimiento'}
+            </Text>
+            <Text style={styles.calendarIcon}>📅</Text>
+          </TouchableOpacity>
+          {errors.birthDate ? <Text style={styles.errorText}>{errors.birthDate}</Text> : null}
+        </View>
 
-  {/* Date Picker Modal/Overlay */}
-  {showDatePicker && (
-    <DateTimePicker 
-      value={form.birthDate ?? new Date(2000, 0, 1)} 
-      mode="date" 
-      display={Platform.OS === 'ios' ? 'spinner' : 'default'} 
-      onChange={onDateChange} 
-            maximumDate={new Date()} 
-            locale="es-AR" 
-          />
+      {/* Date Picker Modal/Overlay */}
+      {showDatePicker && (
+        <DateTimePicker 
+          value={form.birthDate ?? new Date(2000, 0, 1)} 
+          mode="date" 
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'} 
+          onChange={onDateChange} 
+                maximumDate={new Date()} 
+                locale="es-AR" 
+              />
         )}
 
         {/* Contraseña */}
@@ -252,7 +253,12 @@ export default function SignUpScreen() {
               style={styles.eyeButton}
               accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+              <FontAwesome6
+                name={showPassword ? 'eye' : 'eye-slash'}
+                iconStyle="solid"
+                size={18}
+                color="#4A5568"
+              />
             </TouchableOpacity>
           </View>
           {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -263,7 +269,7 @@ export default function SignUpScreen() {
           <View style={[styles.passwordContainer, errors.confirmPassword && styles.inputError]}>
             <TextInput
               style={styles.passwordInput}
-              placeholder="Contraseña"
+              placeholder="Confirmar Contraseña"
               placeholderTextColor="#A0AEC0"
               value={form.confirmPassword}
               onChangeText={(t) => updateField('confirmPassword', t)}
@@ -275,7 +281,12 @@ export default function SignUpScreen() {
               style={styles.eyeButton}
               accessibilityLabel={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              <Text style={styles.eyeIcon}>{showConfirmPassword ? '🙈' : '👁️'}</Text>
+              <FontAwesome6
+                name={showConfirmPassword ? 'eye' : 'eye-slash'}
+                iconStyle="solid"
+                size={18}
+                color="#4A5568"
+              />
             </TouchableOpacity>
           </View>
           {errors.confirmPassword ? (
