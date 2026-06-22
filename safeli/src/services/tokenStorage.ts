@@ -4,6 +4,8 @@ import * as SecureStore from 'expo-secure-store';
 const ACCESS_TOKEN_KEY = 'safeli_access_token';
 const REFRESH_TOKEN_KEY = 'safeli_refresh_token';
 const REMEMBER_ME_KEY = 'safeli_remember_me';
+const USER_KEY = 'safeli_user';
+const MOCK_USERS_KEY = 'safeli_mock_users';
 
 // ─── Platform-aware storage ───────────────────────────────────────────────────
 // expo-secure-store doesn't support web; fall back to localStorage on web.
@@ -34,9 +36,11 @@ const storage = {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 export const tokenStorage = {
-  async saveTokens(accessToken: string, refreshToken: string): Promise<void> {
+  async saveTokens(accessToken: string, refreshToken?: string): Promise<void> {
     await storage.set(ACCESS_TOKEN_KEY, accessToken);
-    await storage.set(REFRESH_TOKEN_KEY, refreshToken);
+    if (refreshToken !== undefined && refreshToken !== null && refreshToken !== '') {
+      await storage.set(REFRESH_TOKEN_KEY, refreshToken);
+    }
   },
 
   async getAccessToken(): Promise<string | null> {
@@ -50,6 +54,39 @@ export const tokenStorage = {
   async clearTokens(): Promise<void> {
     await storage.delete(ACCESS_TOKEN_KEY);
     await storage.delete(REFRESH_TOKEN_KEY);
+  },
+
+  async saveUser(userJson: string): Promise<void> {
+    await storage.set(USER_KEY, userJson);
+  },
+
+  async getUser(): Promise<string | null> {
+    return storage.get(USER_KEY);
+  },
+
+  async clearUser(): Promise<void> {
+    await storage.delete(USER_KEY);
+  },
+
+  // Mock users management (for local/dev auth)
+  async saveMockUser(userJson: string): Promise<void> {
+    const existing = await storage.get(MOCK_USERS_KEY);
+    const users = existing ? JSON.parse(existing) : [];
+    const user = JSON.parse(userJson);
+    // Upsert by username or email
+    const idx = users.findIndex((u: any) => u.username === user.username || u.email === user.email);
+    if (idx > -1) users[idx] = { ...users[idx], ...user };
+    else users.push(user);
+    await storage.set(MOCK_USERS_KEY, JSON.stringify(users));
+  },
+
+  async getMockUsers(): Promise<any[]> {
+    const raw = await storage.get(MOCK_USERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  },
+
+  async clearMockUsers(): Promise<void> {
+    await storage.delete(MOCK_USERS_KEY);
   },
 
   async setRememberMe(value: boolean): Promise<void> {

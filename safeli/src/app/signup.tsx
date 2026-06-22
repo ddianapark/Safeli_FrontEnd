@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   Image,
   Platform,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DatePicker from 'react-native-date-picker';
 import { router } from 'expo-router';
 import { useAuth } from '../context/authContext';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -62,13 +62,11 @@ export default function SignUpScreen() {
     }
   };
 
-  const formatDate = (date: Date | null): string => {
-    if (!date) return '';
-    return date.toLocaleDateString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+  const formatDate = (rawDate: Date) => {
+    const day = rawDate.getDate().toString().padStart(2, '0');
+    const month = (rawDate.getMonth() + 1).toString().padStart(2, '0');
+    const year = rawDate.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   const validate = (): boolean => {
@@ -123,16 +121,9 @@ export default function SignUpScreen() {
     }
   };
 
-  const onDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-    
-    if (event.type === 'set' && selectedDate) {
-      updateField('birthDate', selectedDate);
-    } else if (event.type === 'dismissed') {
-      setShowDatePicker(false);
-    }
+  const handleDateConfirm = (d: Date) => {
+    updateField('birthDate', d);
+    setShowDatePicker(false);
   };
 
   return (
@@ -211,30 +202,57 @@ export default function SignUpScreen() {
 
         {/* Fecha de nacimiento */}
         <View style={styles.inputWrapper}>
-          <TouchableOpacity 
-            style={[styles.dateInput, errors.birthDate && styles.inputError]} 
-            onPress={() => setShowDatePicker(true)} 
-            activeOpacity={0.7}
-          >
-            <Text style={form.birthDate ? styles.dateText : styles.datePlaceholder}>
-              {form.birthDate ? formatDate(form.birthDate) : 'Fecha de nacimiento'}
-            </Text>
-            <Text style={styles.calendarIcon}>📅</Text>
-          </TouchableOpacity>
+          {Platform.OS === 'web' ? (
+            <View style={styles.dateInput}>
+              <input
+                type="date"
+                value={form.birthDate ? form.birthDate.toISOString().split('T')[0] : ''}
+                onChange={(e: any) => {
+                  const val = e?.target?.value;
+                  if (val) {
+                    const d = new Date(val + 'T00:00:00');
+                    updateField('birthDate', d);
+                  } else {
+                    updateField('birthDate', null);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: 15,
+                  color: '#1A202C',
+                }}
+              />
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.dateInput, errors.birthDate && styles.inputError]}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={form.birthDate ? styles.dateText : styles.datePlaceholder}>
+                {form.birthDate ? formatDate(form.birthDate) : 'Fecha de nacimiento'}
+              </Text>
+            </TouchableOpacity>
+          )}
           {errors.birthDate ? <Text style={styles.errorText}>{errors.birthDate}</Text> : null}
         </View>
 
-      {/* Date Picker Modal/Overlay */}
-      {showDatePicker && (
-        <DateTimePicker 
-          value={form.birthDate ?? new Date(2000, 0, 1)} 
-          mode="date" 
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'} 
-          onChange={onDateChange} 
-                maximumDate={new Date()} 
-                locale="es-AR" 
-              />
+        {/* Date Picker Modal (react-native-date-picker) for native platforms */}
+        {Platform.OS !== 'web' && showDatePicker && (
+          <DatePicker
+            modal
+            open={showDatePicker}
+            date={form.birthDate ?? new Date(2000, 0, 1)}
+            mode="date"
+            maximumDate={new Date()}
+            onConfirm={handleDateConfirm}
+            onCancel={() => setShowDatePicker(false)}
+            locale="es-AR"
+          />
         )}
+        
 
         {/* Contraseña */}
         <View style={styles.inputWrapper}>

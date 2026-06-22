@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -38,13 +38,11 @@ export default function ForgotPasswordScreen() {
     try {
       await authService.forgotPassword({ email: email.trim().toLowerCase() });
       // Navigate to step 2 passing the email as a param
-      router.push({
-        pathname: '/verify-code',
-        params: { email: email.trim().toLowerCase() },
-      });
+      // Use query string to ensure the param is available to `useLocalSearchParams`
+      router.push(`/verify-code?email=${encodeURIComponent(email.trim().toLowerCase())}`);
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : 'Ocurrió un error. Intentá de nuevo.';
+      error instanceof Error ? error.message : 'Ocurrió un error. Intentá de nuevo.';
       Alert.alert('Error', message);
     } finally {
       setIsLoading(false);

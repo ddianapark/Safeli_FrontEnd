@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { Stack, useSegments, router, RelativePathString } from 'expo-router';
+import { Stack, useSegments, router } from 'expo-router';
 import { AuthProvider, useAuth } from '../context/authContext';
 
 const SAFELI_BLUE = '#1A3FA8';
@@ -29,7 +29,7 @@ function AuthGuard() {
       router.replace('/');
     } else if (isAuthenticated && inPublicRoute) {
       // Ya logueado intentando acceder a login/signup → home
-      router.replace('/home' as RelativePathString);
+      router.replace('/home');
     }
   }, [isAuthenticated, isLoading, segments]);
 

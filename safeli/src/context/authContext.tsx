@@ -3,7 +3,7 @@ import { router, RelativePathString } from 'expo-router';
 import { authService } from '../services/authService';
 import { tokenStorage } from '../services/tokenStorage';
 import { authEvents } from '../app/apiClient';
-import { AuthContextType, LoginRequest, SignUpRequest, User } from '../types/auth.types';
+import { AuthContextType, LoginRequest, SignUpRequest, User, MapRequest} from '../types/auth.types';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -56,6 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (data: LoginRequest): Promise<void> => {
     const response = await authService.login(data);
     await tokenStorage.saveTokens(response.accessToken, response.refreshToken);
+    // Persist user for offline/mock scenarios
+    await tokenStorage.saveUser(JSON.stringify(response.user));
     await tokenStorage.setRememberMe(data.rememberMe);
     setUser(response.user);
     router.replace('/home' as RelativePathString);
@@ -64,6 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = useCallback(async (data: SignUpRequest): Promise<void> => {
     const response = await authService.signUp(data);
     await tokenStorage.saveTokens(response.accessToken, response.refreshToken);
+    // Persist user for offline/mock scenarios
+    await tokenStorage.saveUser(JSON.stringify(response.user));
     await tokenStorage.setRememberMe(false);
     setUser(response.user);
     router.replace('/home' as RelativePathString);
@@ -80,8 +84,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       await tokenStorage.clearTokens();
       await tokenStorage.clearRememberMe();
+      await tokenStorage.clearUser();
       setUser(null);
       router.replace('/');
+    }
+  }, []);
+
+  const map = useCallback(async (data: MapRequest): Promise<void> => {
+    try {
+      await (authService as any).map(data);
+    } catch (error) {
+      console.error('Error en map:', error);
     }
   }, []);
 
@@ -94,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         signUp,
         logout,
+        map,
       }}
     >
       {children}

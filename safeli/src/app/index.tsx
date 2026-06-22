@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -40,7 +40,8 @@ export default function LoginScreen() {
       await login({ username: username.trim(), password, rememberMe });
     } catch (error: unknown) {
       const message =
-        error instanceof Error ? error.message : 'Ocurrió un error. Intentá de nuevo.';
+      error instanceof Error ? error.message : 'Ocurrió un error. Intentá de nuevo.';
+      setErrors((prev) => ({ ...prev, password: message }));
       Alert.alert('Error al iniciar sesión', message);
     } finally {
       setIsLoading(false);
@@ -55,7 +56,7 @@ export default function LoginScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Image
-          source={require('../../assets/images/safeli.png')} // TODO: adjust path to your logo
+          source={require('../../assets/images/safeli.png')}
           style={styles.logo}
           resizeMode="contain"
         />

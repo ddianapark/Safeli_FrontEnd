@@ -27,7 +27,7 @@ export const authEvents = {
 
 // ─── Token refresh queue ──────────────────────────────────────────────────────
 interface FailedRequest {
-  resolve: (value: string | null) => void;
+  resolve: (value: string | PromiseLike<string>) => void;
   reject: (error: unknown) => void;
 }
 
@@ -39,11 +39,79 @@ const processQueue = (error: unknown, token: string | null = null): void => {
     if (error) {
       request.reject(error);
     } else {
-      request.resolve(token);
+      request.resolve(token as string);
     }
   });
   failedRequestsQueue = [];
 };
+
+// Decode JWT payload (naive, no verification) to read `exp` claim
+function parseJwt(token: string): { exp?: number } {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return {};
+    const payload = parts[1];
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    let json = '';
+    if (typeof globalThis.atob === 'function') {
+      json = globalThis.atob(b64);
+    } else if (typeof Buffer !== 'undefined') {
+      // Node / some RN setups provide Buffer
+      // @ts-ignore
+      json = Buffer.from(b64, 'base64').toString('utf8');
+    } else {
+      return {};
+    }
+    return JSON.parse(decodeURIComponent(escape(json)));
+  } catch {
+    return {};
+  }
+}
+
+// Refresh helper that serializes concurrent refresh attempts using the queue
+async function refreshWithQueue(): Promise<string> {
+  if (isRefreshing) {
+    return new Promise((resolve, reject) => {
+      failedRequestsQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+  try {
+    const refreshToken = await tokenStorage.getRefreshToken();
+    let response;
+
+    if (refreshToken) {
+      response = await axios.post<AuthTokens>(`${BASE_URL}/auth/refresh`, { refreshToken });
+    } else {
+      // Try cookie-based refresh (backend should set HttpOnly cookie)
+      response = await axios.post<AuthTokens>(`${BASE_URL}/auth/refresh`, {}, { withCredentials: true });
+    }
+
+    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+
+    // save tokens (only set refresh token if backend provided one)
+    const existingRefresh = await tokenStorage.getRefreshToken();
+    if (newRefreshToken) {
+      await tokenStorage.saveTokens(newAccessToken, newRefreshToken);
+    } else if (existingRefresh) {
+      await tokenStorage.saveTokens(newAccessToken);
+    } else {
+      await tokenStorage.saveTokens(newAccessToken);
+    }
+
+    processQueue(null, newAccessToken);
+    return newAccessToken;
+  } catch (refreshError) {
+    processQueue(refreshError, null);
+    await tokenStorage.clearTokens();
+    await tokenStorage.clearRememberMe();
+    authEvents.emitForceLogout();
+    throw refreshError;
+  } finally {
+    isRefreshing = false;
+  }
+}
 
 // ─── Axios instance ───────────────────────────────────────────────────────────
 const apiClient: AxiosInstance = axios.create({
@@ -57,7 +125,22 @@ const apiClient: AxiosInstance = axios.create({
 // ─── Request interceptor ──────────────────────────────────────────────────────
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const accessToken = await tokenStorage.getAccessToken();
+      let accessToken = await tokenStorage.getAccessToken();
+
+    // Proactive refresh: decode token and refresh if it's expiring in <60s
+    if (accessToken) {
+      const payload = parseJwt(accessToken);
+      const exp = payload.exp ?? 0;
+      const now = Math.floor(Date.now() / 1000);
+      if (exp - now < 60) {
+        try {
+          accessToken = await refreshWithQueue();
+        } catch (e) {
+          // refresh failed — let request proceed (it will 401 and trigger fallback)
+        }
+      }
+    }
+
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
@@ -73,52 +156,15 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status === 401 && !originalRequest._retry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedRequestsQueue.push({ resolve, reject });
-        })
-          .then((newToken) => {
-            if (originalRequest.headers) {
-              originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            }
-            return apiClient(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
       originalRequest._retry = true;
-      isRefreshing = true;
-
       try {
-        const refreshToken = await tokenStorage.getRefreshToken();
-
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
-        const response = await axios.post<AuthTokens>(`${BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
-
-        await tokenStorage.saveTokens(newAccessToken, newRefreshToken);
-        processQueue(null, newAccessToken);
-
+        const newToken = await refreshWithQueue();
         if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
         }
-
         return apiClient(originalRequest);
       } catch (refreshError) {
-        processQueue(refreshError, null);
-        await tokenStorage.clearTokens();
-        await tokenStorage.clearRememberMe();
-        // ← Notifica al AuthContext para que limpie el estado y redirija al login
-        authEvents.emitForceLogout();
         return Promise.reject(refreshError);
-      } finally {
-        isRefreshing = false;
       }
     }
 

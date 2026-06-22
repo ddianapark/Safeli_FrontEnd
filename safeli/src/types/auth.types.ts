@@ -47,6 +47,11 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface MapRequest {
+  latitude: number;
+  longitude: number;
+}
+
 export interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -54,4 +59,6 @@ export interface AuthContextType {
   login: (data: LoginRequest) => Promise<void>;
   signUp: (data: SignUpRequest) => Promise<void>;
   logout: () => Promise<void>;
-}
+  map:(data: MapRequest) => Promise<void>;
+
+  };
