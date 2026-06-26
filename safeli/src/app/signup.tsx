@@ -24,6 +24,8 @@ interface FormFields {
   birthDate: Date | null;
   password: string;
   confirmPassword: string;
+  nroTelefono: string;
+  foto: string;
 }
 
 interface FormErrors {
@@ -47,6 +49,8 @@ export default function SignUpScreen() {
     birthDate: null,
     password: '',
     confirmPassword: '',
+    nroTelefono: '',
+    foto: '',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -104,6 +108,8 @@ export default function SignUpScreen() {
     if (!validate()) return;
     setIsLoading(true);
     try {
+      const parsedTelefono = form.nroTelefono.trim() ? parseInt(form.nroTelefono.trim(), 10) : undefined;
+
       await signUp({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
@@ -111,6 +117,8 @@ export default function SignUpScreen() {
         username: form.username.trim(),
         birthDate: form.birthDate!.toISOString().split('T')[0], // YYYY-MM-DD
         password: form.password,
+        nroTelefono: parsedTelefono,
+        foto: form.foto.trim() ? form.foto.trim() : undefined,
       });
     } catch (error: unknown) {
       const message =
@@ -198,6 +206,31 @@ export default function SignUpScreen() {
             autoCorrect={false}
           />
           {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
+        </View>
+
+        {/* Teléfono (Opcional) */}
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.input}
+            placeholder="Teléfono (Opcional)"
+            placeholderTextColor="#A0AEC0"
+            value={form.nroTelefono}
+            onChangeText={(t) => updateField('nroTelefono', t)}
+            keyboardType="numeric"
+          />
+        </View>
+
+        {/* Foto URL (Opcional) */}
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.input}
+            placeholder="URL de Foto de Perfil (Opcional)"
+            placeholderTextColor="#A0AEC0"
+            value={form.foto}
+            onChangeText={(t) => updateField('foto', t)}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         </View>
 
         {/* Fecha de nacimiento */}

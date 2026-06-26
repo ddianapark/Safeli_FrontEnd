@@ -57,8 +57,16 @@ export default function VerifyCodeScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.replace('/')} style={styles.backButton}>
-                <Text style={styles.backIcon}>←</Text>
+            <TouchableOpacity onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.navigate('/');
+                }
+              }} 
+              style={styles.backButton}
+            >
+              <Text style={styles.backIcon}>←</Text>
             </TouchableOpacity>
         </View>
 
@@ -104,7 +112,7 @@ const SAFELI_LIGHT_BLUE = '#D6E4F7';
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, backgroundColor: '#F5F8FF' },
-  body: { paddingHorizontal: 28, paddingTop: 60 },
+  body: { paddingHorizontal: 28, paddingTop: 36, zIndex: 1, },
   title: { fontSize: 22, fontWeight: '700', color: '#1A202C', marginBottom: 8 },
   subtitle: { color: '#4A5568', marginBottom: 20 },
   inputWrapper: { marginBottom: 14 },
@@ -115,12 +123,14 @@ const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     left: 20,
-    top: 20,
-    padding: 8,
+    top: 10,
+    padding: 12,
+    zIndex: 999,
+    cursor: 'pointer',
   },
   backIcon: {
-    color: '#FFFFFF',
-    fontSize: 22,
+    color: '#ffffff',
+    fontSize: 24,
     fontWeight: '600',
   },
   header: {

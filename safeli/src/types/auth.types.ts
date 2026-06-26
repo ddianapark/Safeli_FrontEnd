@@ -11,6 +11,8 @@ export interface SignUpRequest {
   username: string;
   birthDate: string; // ISO format: YYYY-MM-DD
   password: string;
+  nroTelefono?: number | null;
+  foto?: string;
 }
 
 export interface ForgotPasswordRequest {
@@ -34,7 +36,7 @@ export interface AuthTokens {
 }
 
 export interface User {
-  id: string;
+  id: number;
   username: string;
   email: string;
   firstName: string;
@@ -61,4 +63,41 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   map:(data: MapRequest) => Promise<void>;
 
-  };
+  }
+  
+  export interface BackendLoginBody {
+  username: string;
+  contraseña: string;
+}
+
+export interface BackendRegisterBody {
+  nombre: string;
+  apellido: string;
+  email: string;
+  username: string;
+  fechaNacimiento: string;  // YYYY-MM-DD
+  contraseña: string;
+  nroTelefono?: number | null;
+  foto?: string;
+}
+
+export interface BackendUser {
+  id: number;
+  nombre: string;
+  apellido: string;
+  email: string;
+  username: string;
+  nroTelefono?: number | null;
+  foto?: string;
+  fechaNacimiento?: string;
+  contactoEmergencia?: number | null;
+  ubicacion?: string | null;
+}
+
+export interface BackendAuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: BackendUser;
+}
+
+export type BackendMeResponse = BackendUser;

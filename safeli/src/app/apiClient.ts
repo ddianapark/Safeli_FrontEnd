@@ -1,20 +1,17 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { tokenStorage } from '../services/tokenStorage';
 import { AuthTokens } from '../types/auth.types';
-
-const BASE_URL = 'https://api.safeli.com';
+import { BASE_URL } from '../constants/config';
 
 // ─── Force-logout event bus ───────────────────────────────────────────────────
 // apiClient vive fuera del árbol de React, así que no puede llamar directamente
 // al AuthContext. Usamos un simple event emitter para desacoplarlo.
-// El AuthContext se suscribe a este evento y ejecuta el logout.
 type Listener = () => void;
 const forceLogoutListeners: Listener[] = [];
 
 export const authEvents = {
   onForceLogout(listener: Listener): () => void {
     forceLogoutListeners.push(listener);
-    // Devuelve una función de cleanup para usarla en useEffect
     return () => {
       const index = forceLogoutListeners.indexOf(listener);
       if (index > -1) forceLogoutListeners.splice(index, 1);
@@ -35,28 +32,23 @@ let isRefreshing = false;
 let failedRequestsQueue: FailedRequest[] = [];
 
 const processQueue = (error: unknown, token: string | null = null): void => {
-  failedRequestsQueue.forEach((request) => {
-    if (error) {
-      request.reject(error);
-    } else {
-      request.resolve(token as string);
-    }
+  failedRequestsQueue.forEach((req) => {
+    if (error) req.reject(error);
+    else req.resolve(token as string);
   });
   failedRequestsQueue = [];
 };
 
-// Decode JWT payload (naive, no verification) to read `exp` claim
+// Decodifica el payload del JWT para leer `exp` (sin verificar firma).
 function parseJwt(token: string): { exp?: number } {
   try {
     const parts = token.split('.');
     if (parts.length < 2) return {};
-    const payload = parts[1];
-    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
     let json = '';
     if (typeof globalThis.atob === 'function') {
       json = globalThis.atob(b64);
     } else if (typeof Buffer !== 'undefined') {
-      // Node / some RN setups provide Buffer
       // @ts-ignore
       json = Buffer.from(b64, 'base64').toString('utf8');
     } else {
@@ -68,7 +60,7 @@ function parseJwt(token: string): { exp?: number } {
   }
 }
 
-// Refresh helper that serializes concurrent refresh attempts using the queue
+// Serializa múltiples refreshes concurrentes con una cola.
 async function refreshWithQueue(): Promise<string> {
   if (isRefreshing) {
     return new Promise((resolve, reject) => {
@@ -82,26 +74,29 @@ async function refreshWithQueue(): Promise<string> {
     let response;
 
     if (refreshToken) {
-      response = await axios.post<AuthTokens>(`${BASE_URL}/auth/refresh`, { refreshToken });
+      response = await axios.post<AuthTokens>(
+        `${BASE_URL}/auth/refresh`,
+        { refreshToken },
+      );
     } else {
-      // Try cookie-based refresh (backend should set HttpOnly cookie)
-      response = await axios.post<AuthTokens>(`${BASE_URL}/auth/refresh`, {}, { withCredentials: true });
+      // Refresh vía HttpOnly cookie (si el backend lo soporta)
+      response = await axios.post<AuthTokens>(
+        `${BASE_URL}/auth/refresh`,
+        {},
+        { withCredentials: true },
+      );
     }
 
-    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+    const { accessToken: newAccess, refreshToken: newRefresh } = response.data;
 
-    // save tokens (only set refresh token if backend provided one)
-    const existingRefresh = await tokenStorage.getRefreshToken();
-    if (newRefreshToken) {
-      await tokenStorage.saveTokens(newAccessToken, newRefreshToken);
-    } else if (existingRefresh) {
-      await tokenStorage.saveTokens(newAccessToken);
+    if (newRefresh) {
+      await tokenStorage.saveTokens(newAccess, newRefresh);
     } else {
-      await tokenStorage.saveTokens(newAccessToken);
+      await tokenStorage.saveTokens(newAccess);
     }
 
-    processQueue(null, newAccessToken);
-    return newAccessToken;
+    processQueue(null, newAccess);
+    return newAccess;
   } catch (refreshError) {
     processQueue(refreshError, null);
     await tokenStorage.clearTokens();
@@ -116,27 +111,26 @@ async function refreshWithQueue(): Promise<string> {
 // ─── Axios instance ───────────────────────────────────────────────────────────
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  timeout: 10_000,
+  headers: { 'Content-Type': 'application/json' },
 });
 
 // ─── Request interceptor ──────────────────────────────────────────────────────
+// Adjunta el Bearer token en cada request.
+// Si el token vence en menos de 60 s, lo refresca de forma proactiva.
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-      let accessToken = await tokenStorage.getAccessToken();
+    let accessToken = await tokenStorage.getAccessToken();
 
-    // Proactive refresh: decode token and refresh if it's expiring in <60s
     if (accessToken) {
-      const payload = parseJwt(accessToken);
-      const exp = payload.exp ?? 0;
-      const now = Math.floor(Date.now() / 1000);
-      if (exp - now < 60) {
+      const { exp = 0 } = parseJwt(accessToken);
+      const secsLeft = exp - Math.floor(Date.now() / 1000);
+      if (secsLeft < 60) {
         try {
           accessToken = await refreshWithQueue();
-        } catch (e) {
-          // refresh failed — let request proceed (it will 401 and trigger fallback)
+        } catch {
+          // Si falla el refresh proactivo dejamos pasar; el interceptor de
+          // respuesta (401) hará el segundo intento.
         }
       }
     }
@@ -144,32 +138,35 @@ apiClient.interceptors.request.use(
     if (accessToken && config.headers) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
+
     return config;
   },
-  (error: AxiosError) => Promise.reject(error)
+  (error: AxiosError) => Promise.reject(error),
 );
 
 // ─── Response interceptor ─────────────────────────────────────────────────────
+// Si el backend devuelve 401 (token vencido en el servidor) reintenta una vez
+// con un nuevo token.
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
+    if (error.response?.status === 401 && !original._retry) {
+      original._retry = true;
       try {
         const newToken = await refreshWithQueue();
-        if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        if (original.headers) {
+          original.headers.Authorization = `Bearer ${newToken}`;
         }
-        return apiClient(originalRequest);
+        return apiClient(original);
       } catch (refreshError) {
         return Promise.reject(refreshError);
       }
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default apiClient;
