@@ -8,6 +8,5 @@ export const USE_MOCK_AUTH = false;
 //
 // 10.0.2.2  → emulador Android (apunta al localhost de tu máquina)
 // localhost  → web / iOS simulator
-export const BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000';
+export const BASE_URL = 'http://localhost:3000';
  

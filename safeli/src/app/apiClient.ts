@@ -3,9 +3,6 @@ import { tokenStorage } from '../services/tokenStorage';
 import { AuthTokens } from '../types/auth.types';
 import { BASE_URL } from '../constants/config';
 
-// ─── Force-logout event bus ───────────────────────────────────────────────────
-// apiClient vive fuera del árbol de React, así que no puede llamar directamente
-// al AuthContext. Usamos un simple event emitter para desacoplarlo.
 type Listener = () => void;
 const forceLogoutListeners: Listener[] = [];
 
@@ -22,7 +19,6 @@ export const authEvents = {
   },
 };
 
-// ─── Token refresh queue ──────────────────────────────────────────────────────
 interface FailedRequest {
   resolve: (value: string | PromiseLike<string>) => void;
   reject: (error: unknown) => void;
@@ -34,33 +30,36 @@ let failedRequestsQueue: FailedRequest[] = [];
 const processQueue = (error: unknown, token: string | null = null): void => {
   failedRequestsQueue.forEach((req) => {
     if (error) req.reject(error);
-    else req.resolve(token as string);
+    else req.resolve(token!);
   });
   failedRequestsQueue = [];
 };
 
-// Decodifica el payload del JWT para leer `exp` (sin verificar firma).
-function parseJwt(token: string): { exp?: number } {
+export const apiClient: AxiosInstance = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Helper decodificador rápido de JWT
+function parseJwt(token: string) {
   try {
-    const parts = token.split('.');
-    if (parts.length < 2) return {};
-    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    let json = '';
-    if (typeof globalThis.atob === 'function') {
-      json = globalThis.atob(b64);
-    } else if (typeof Buffer !== 'undefined') {
-      // @ts-ignore
-      json = Buffer.from(b64, 'base64').toString('utf8');
-    } else {
-      return {};
-    }
-    return JSON.parse(decodeURIComponent(escape(json)));
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
   } catch {
     return {};
   }
 }
 
-// Serializa múltiples refreshes concurrentes con una cola.
+// Lógica de petición de Refresh pasándole el token por Header customizado
 async function refreshWithQueue(): Promise<string> {
   if (isRefreshing) {
     return new Promise((resolve, reject) => {
@@ -69,55 +68,42 @@ async function refreshWithQueue(): Promise<string> {
   }
 
   isRefreshing = true;
-  try {
-    const refreshToken = await tokenStorage.getRefreshToken();
-    let response;
+  const currentRefreshToken = await tokenStorage.getRefreshToken();
 
-    if (refreshToken) {
-      response = await axios.post<AuthTokens>(
-        `${BASE_URL}/auth/refresh`,
-        { refreshToken },
-      );
-    } else {
-      // Refresh vía HttpOnly cookie (si el backend lo soporta)
-      response = await axios.post<AuthTokens>(
+  if (!currentRefreshToken) {
+    isRefreshing = false;
+    throw new Error('No refresh token storage found');
+  }
+
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Mandamos el Refresh Token via Headers tal como pide tu flujo
+      const response = await axios.post<{ accessToken: string; refreshToken: string }>(
         `${BASE_URL}/auth/refresh`,
         {},
-        { withCredentials: true },
+        {
+          headers: {
+            'x-refresh-token': currentRefreshToken,
+          },
+        }
       );
+
+      const { accessToken, refreshToken } = response.data;
+      await tokenStorage.saveTokens(accessToken, refreshToken);
+
+      processQueue(null, accessToken);
+      resolve(accessToken);
+    } catch (err) {
+      processQueue(err, null);
+      authEvents.emitForceLogout(); // Si falla el Refresh -> Expulsión al Login
+      reject(err);
+    } finally {
+      isRefreshing = false;
     }
-
-    const { accessToken: newAccess, refreshToken: newRefresh } = response.data;
-
-    if (newRefresh) {
-      await tokenStorage.saveTokens(newAccess, newRefresh);
-    } else {
-      await tokenStorage.saveTokens(newAccess);
-    }
-
-    processQueue(null, newAccess);
-    return newAccess;
-  } catch (refreshError) {
-    processQueue(refreshError, null);
-    await tokenStorage.clearTokens();
-    await tokenStorage.clearRememberMe();
-    authEvents.emitForceLogout();
-    throw refreshError;
-  } finally {
-    isRefreshing = false;
-  }
+  });
 }
 
-// ─── Axios instance ───────────────────────────────────────────────────────────
-const apiClient: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
-  timeout: 10_000,
-  headers: { 'Content-Type': 'application/json' },
-});
-
-// ─── Request interceptor ──────────────────────────────────────────────────────
-// Adjunta el Bearer token en cada request.
-// Si el token vence en menos de 60 s, lo refresca de forma proactiva.
+// ─── Request Interceptor ──────────────────────────────────────────────────────
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     let accessToken = await tokenStorage.getAccessToken();
@@ -125,12 +111,13 @@ apiClient.interceptors.request.use(
     if (accessToken) {
       const { exp = 0 } = parseJwt(accessToken);
       const secsLeft = exp - Math.floor(Date.now() / 1000);
+      
+      // Si está a menos de 60 segundos de vencer hacemos refresh preventivo
       if (secsLeft < 60) {
         try {
           accessToken = await refreshWithQueue();
         } catch {
-          // Si falla el refresh proactivo dejamos pasar; el interceptor de
-          // respuesta (401) hará el segundo intento.
+          // Si falla de manera asíncrona, dejamos que prosiga para que lo capture el interceptor 401
         }
       }
     }
@@ -141,17 +128,16 @@ apiClient.interceptors.request.use(
 
     return config;
   },
-  (error: AxiosError) => Promise.reject(error),
+  (error: AxiosError) => Promise.reject(error)
 );
 
-// ─── Response interceptor ─────────────────────────────────────────────────────
-// Si el backend devuelve 401 (token vencido en el servidor) reintenta una vez
-// con un nuevo token.
+// ─── Response Interceptor ─────────────────────────────────────────────────────
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    // Si el servidor responde 401 Unauthorized (JWT Expirado en ruta protegida)
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
       try {
@@ -159,14 +145,17 @@ apiClient.interceptors.response.use(
         if (original.headers) {
           original.headers.Authorization = `Bearer ${newToken}`;
         }
-        return apiClient(original);
+        return apiClient(original); // Reintenta petición original con el nuevo JWT
       } catch (refreshError) {
+        // Si el refresh token también expiró, eliminamos credenciales locales
+        await tokenStorage.clearTokens();
+        await tokenStorage.clearUser();
+        authEvents.emitForceLogout();
         return Promise.reject(refreshError);
       }
     }
-
     return Promise.reject(error);
-  },
+  }
 );
 
 export default apiClient;
