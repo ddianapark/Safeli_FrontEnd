@@ -13,23 +13,90 @@ import {
   BackendAuthResponse,
   BackendMeResponse,
 } from '../types/auth.types';
+import { AxiosError } from 'axios';
+
+// ─── Error normalizer ──────────────────────────────────────────────────────────
+// El backend usa Supabase, que puede devolver errores con esta forma:
+//   { message: '...', code: 'PGRST...', details: '...', hint: '...' }
+// O errores propios del backend Express:
+//   { message: '...' } | { error: '...' }
+
+function parseBackendError(error: unknown): Error {
+  if (error instanceof AxiosError) {
+    const status = error.response?.status;
+    const data = error.response?.data;
+
+    // Extraemos el mensaje: backend propio o error de Supabase encapsulado
+    const backendMessage: string | undefined =
+      typeof data === 'string'
+        ? data
+        : data?.message ?? data?.error ?? data?.details ?? undefined;
+
+    // Códigos de error de PostgreSQL/Supabase que el backend puede reenviar
+    const pgCode: string | undefined = data?.code;
+
+    if (pgCode) {
+      switch (pgCode) {
+        case '23505': // unique_violation — username o email duplicado
+          return new Error('El usuario o email ya está registrado.');
+        case '23502': // not_null_violation — campo requerido faltante
+          return new Error('Faltan datos requeridos. Completá todos los campos.');
+        case '23503': // foreign_key_violation
+          return new Error('Error de integridad de datos. Contactá soporte.');
+        case 'PGRST116': // no rows found (Supabase REST)
+          return new Error('Usuario no encontrado.');
+        case 'PGRST301': // JWT expired (Supabase)
+          return new Error('Tu sesión expiró. Iniciá sesión de nuevo.');
+      }
+    }
+
+    switch (status) {
+      case 400:
+        return new Error(backendMessage ?? 'Datos inválidos. Revisá el formulario.');
+      case 401:
+        return new Error(backendMessage ?? 'Usuario o contraseña incorrectos.');
+      case 403:
+        return new Error(backendMessage ?? 'No tenés permiso para realizar esta acción.');
+      case 404:
+        return new Error(backendMessage ?? 'Usuario no encontrado.');
+      case 409:
+        return new Error(backendMessage ?? 'El usuario o email ya está registrado.');
+      case 422:
+        return new Error(backendMessage ?? 'Los datos enviados no son válidos.');
+      case 429:
+        return new Error('Demasiados intentos. Esperá unos minutos y volvé a intentar.');
+      case 500:
+      case 502:
+      case 503:
+        return new Error('El servidor no está disponible. Intentá más tarde.');
+      default:
+        if (!error.response) {
+          return new Error('Sin conexión. Verificá tu red e intentá de nuevo.');
+        }
+        return new Error(backendMessage ?? 'Ocurrió un error inesperado.');
+    }
+  }
+
+  if (error instanceof Error) return error;
+  return new Error('Ocurrió un error inesperado.');
+}
 
 // ─── Helpers de mapeo ─────────────────────────────────────────────────────────
 
-/** BackendUser → User (frontend) */
 function mapBackendUser(bu: BackendAuthResponse['user']): User {
   return {
-    id: bu.id, // ← Ahora ambos son number, no rompe
+    id: bu.id,
     username: bu.username,
     email: bu.email,
     firstName: bu.nombre,
     lastName: bu.apellido,
-    ...((bu.nroTelefono !== undefined && bu.nroTelefono !== null) ? { nroTelefono: bu.nroTelefono } : {}),
+    ...((bu.nroTelefono !== undefined && bu.nroTelefono !== null)
+      ? { nroTelefono: bu.nroTelefono }
+      : {}),
     ...(bu.foto ? { foto: bu.foto } : {}),
   } as User;
-  };
+}
 
-/** AuthResponse frontend construido desde la respuesta del backend */
 function mapBackendAuthResponse(raw: BackendAuthResponse): AuthResponse {
   return {
     accessToken: raw.accessToken,
@@ -38,52 +105,53 @@ function mapBackendAuthResponse(raw: BackendAuthResponse): AuthResponse {
   };
 }
 
-// ─── Service ──────────────────────────────────────────────────────────────────
 export const authService = {
 
-  // POST /auth/login
   async login(data: LoginRequest): Promise<AuthResponse> {
-    if (USE_MOCK_AUTH) {
-      return mockLogin(data);
+    if (USE_MOCK_AUTH) return mockLogin(data);
+
+    try {
+      const body: BackendLoginBody = {
+        username: data.username,
+        contraseña: data.password,
+      };
+      const response = await apiClient.post<BackendAuthResponse>('/auth/login', body);
+      return mapBackendAuthResponse(response.data);
+    } catch (error) {
+      throw parseBackendError(error);
     }
-
-    const body: BackendLoginBody = {
-      username: data.username,
-      contraseña: data.password,
-    };
-
-    const response = await apiClient.post<BackendAuthResponse>('/auth/login', body);
-    return mapBackendAuthResponse(response.data);
   },
 
-  // POST /auth/register
   async signUp(data: SignUpRequest): Promise<AuthResponse> {
-    if (USE_MOCK_AUTH) {
-      return mockSignUp(data);
+    if (USE_MOCK_AUTH) return mockSignUp(data);
+
+    try {
+      const body: BackendRegisterBody = {
+        nombre: data.firstName,
+        apellido: data.lastName,
+        email: data.email,
+        username: data.username,
+        fechaNacimiento: data.birthDate,
+        contraseña: data.password,
+        nroTelefono: data.nroTelefono || null,
+        foto: data.foto || '-1',
+      };
+      const response = await apiClient.post<BackendAuthResponse>('/auth/register', body);
+      return mapBackendAuthResponse(response.data);
+    } catch (error) {
+      throw parseBackendError(error);
     }
-
-    const body: BackendRegisterBody = {
-      nombre: data.firstName,
-      apellido: data.lastName,
-      email: data.email,
-      username: data.username,
-      fechaNacimiento: data.birthDate,
-      contraseña: data.password,
-      nroTelefono: data.nroTelefono || null, // Si está vacío, manda null
-      foto: data.foto || '-1',               // Valor default según tu script SQL
-    };
-
-    const response = await apiClient.post<BackendAuthResponse>('/auth/register', body);
-    return mapBackendAuthResponse(response.data);
   },
 
-  // POST /auth/logout
   async logout(refreshToken: string): Promise<void> {
     if (USE_MOCK_AUTH) return;
-    await apiClient.post('/auth/logout', { refreshToken });
+    try {
+      await apiClient.post('/auth/logout', { refreshToken });
+    } catch {
+      // best-effort: si el server falla limpiamos localmente igual
+    }
   },
 
-  // GET /auth/me
   async getMe(): Promise<User> {
     if (USE_MOCK_AUTH) {
       const { tokenStorage } = await import('./tokenStorage');
@@ -92,35 +160,47 @@ export const authService = {
       throw new Error('No mock user saved');
     }
 
-    const response = await apiClient.get<BackendMeResponse>('/auth/me');
-    return mapBackendUser(response.data);
+    try {
+      const response = await apiClient.get<BackendMeResponse>('/auth/me');
+      return mapBackendUser(response.data);
+    } catch (error) {
+      throw parseBackendError(error);
+    }
   },
 
-  // POST /auth/forgot-password
   async forgotPassword(data: ForgotPasswordRequest): Promise<void> {
     if (USE_MOCK_AUTH) return;
-    await apiClient.post('/auth/forgot-password', data);
+    try {
+      await apiClient.post('/auth/forgot-password', data);
+    } catch (error) {
+      throw parseBackendError(error);
+    }
   },
 
-  // POST /auth/verify-code
   async verifyCode(data: VerifyCodeRequest): Promise<void> {
     if (USE_MOCK_AUTH) return;
-    await apiClient.post('/auth/verify-code', data);
+    try {
+      await apiClient.post('/auth/verify-code', data);
+    } catch (error) {
+      throw parseBackendError(error);
+    }
   },
 
-  // POST /auth/reset-password
   async resetPassword(data: ResetPasswordRequest): Promise<void> {
     if (USE_MOCK_AUTH) return;
-    await apiClient.post('/auth/reset-password', {
-      email: data.email,
-      code: data.code,
-      nuevaContraseña: data.newPassword,
-    });
+    try {
+      await apiClient.post('/auth/reset-password', {
+        email: data.email,
+        code: data.code,
+        nuevaContraseña: data.newPassword,
+      });
+    } catch (error) {
+      throw parseBackendError(error);
+    }
   },
 };
 
-// ─── Mock helpers (fijados los errores de conversión) ─────────────────────────
-
+// Mock helpers
 async function mockLogin(data: LoginRequest): Promise<AuthResponse> {
   const { tokenStorage } = await import('./tokenStorage');
   const users = await tokenStorage.getMockUsers();
@@ -147,8 +227,14 @@ async function mockLogin(data: LoginRequest): Promise<AuthResponse> {
 
 async function mockSignUp(data: SignUpRequest): Promise<AuthResponse> {
   const { tokenStorage } = await import('./tokenStorage');
+  const users = await tokenStorage.getMockUsers();
+  const exists = users.find(
+    (u: any) => u.username === data.username || u.email === data.email,
+  );
+  if (exists) throw new Error('El usuario o email ya está registrado.');
+
   const mockStored = {
-    id: Date.now(), // Un número para simular el serial id
+    id: Date.now(),
     username: data.username,
     email: data.email,
     firstName: data.firstName,
@@ -163,6 +249,6 @@ async function mockSignUp(data: SignUpRequest): Promise<AuthResponse> {
   return {
     accessToken: 'mock-access-token',
     refreshToken: 'mock-refresh-token',
-    user: userNoPass as User, // ← Ahora machataca perfectamente sin dar error
+    user: userNoPass as User,
   };
 }

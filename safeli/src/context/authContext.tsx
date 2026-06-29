@@ -3,7 +3,7 @@ import { router, RelativePathString } from 'expo-router';
 import { authService } from '../services/authService';
 import { tokenStorage } from '../services/tokenStorage';
 import { authEvents } from '../app/apiClient';
-import { AuthContextType, LoginRequest, SignUpRequest, User, MapRequest} from '../types/auth.types';
+import { AuthContextType, LoginRequest, SignUpRequest, User, MapRequest } from '../types/auth.types';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -12,8 +12,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // ─── Force-logout listener ──────────────────────────────────────────────────
-  // Cuando el refresh token expira, apiClient emite este evento.
-  // Limpiamos el estado sin intentar llamar al backend (ya sabemos que falló).
   useEffect(() => {
     const unsubscribe = authEvents.onForceLogout(async () => {
       setUser(null);
@@ -23,26 +21,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // ─── Bootstrap ──────────────────────────────────────────────────────────────
-  // Al iniciar la app: si hay token + rememberMe, intentamos rehydratar el usuario
-  // con GET /auth/me. Si falla (token vencido, red, etc.) limpiamos todo.
+  // Revalida la sesión contra el backend en cada inicio de app.
+  // Si hay token + rememberMe → llama /auth/me para traer datos frescos.
+  // Si /auth/me falla (token vencido, red caída, etc.) → limpia y manda al login.
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
         const rememberMe = await tokenStorage.getRememberMe();
         const accessToken = await tokenStorage.getAccessToken();
 
-        if (rememberMe && accessToken) {
-          // El interceptor adjuntará el Bearer token automáticamente
-          const me = await authService.getMe();
-          setUser(me);
-        } else if (!rememberMe) {
-          // "Recordarme" no estaba activo — la sesión no persiste entre reinicios
+        if (!rememberMe || !accessToken) {
+          // Sin "recordarme" activo o sin token → limpiamos y vamos al login
           await tokenStorage.clearTokens();
+          return;
         }
+
+        // Token existe: revalidamos contra el backend
+        // El interceptor de apiClient adjunta el Bearer automáticamente
+        // y hace el refresh si está por vencer.
+        const freshUser = await authService.getMe();
+        setUser(freshUser);
+
+        // Actualizamos el usuario cacheado con los datos frescos del backend
+        await tokenStorage.saveUser(JSON.stringify(freshUser));
       } catch {
-        // Token inválido o vencido (el interceptor ya intentó el refresh)
+        // Token inválido, vencido, o sin red — limpiamos todo
         await tokenStorage.clearTokens();
         await tokenStorage.clearRememberMe();
+        await tokenStorage.clearUser();
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -52,11 +58,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     bootstrapAuth();
   }, []);
 
-  // ─── Auth actions ────────────────────────────────────────────────────────────
+  // revalida y actualiza datos del usuario desde el backend
+  // Útil para después de editar perfil, o al volver a primer plano
+  const refreshUser = useCallback(async (): Promise<void> => {
+    try {
+      const freshUser = await authService.getMe();
+      setUser(freshUser);
+      await tokenStorage.saveUser(JSON.stringify(freshUser));
+    } catch {
+      // Si falla la revalidación, la forzamos al login
+      await tokenStorage.clearTokens();
+      await tokenStorage.clearRememberMe();
+      await tokenStorage.clearUser();
+      setUser(null);
+      router.replace('/');
+    }
+  }, []);
+
   const login = useCallback(async (data: LoginRequest): Promise<void> => {
+    // authService.login ya lanza errores con mensajes del backend
     const response = await authService.login(data);
     await tokenStorage.saveTokens(response.accessToken, response.refreshToken);
-    // Persist user for offline/mock scenarios
     await tokenStorage.saveUser(JSON.stringify(response.user));
     await tokenStorage.setRememberMe(data.rememberMe);
     setUser(response.user);
@@ -66,7 +88,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = useCallback(async (data: SignUpRequest): Promise<void> => {
     const response = await authService.signUp(data);
     await tokenStorage.saveTokens(response.accessToken, response.refreshToken);
-    // Persist user for offline/mock scenarios
     await tokenStorage.saveUser(JSON.stringify(response.user));
     await tokenStorage.setRememberMe(false);
     setUser(response.user);
@@ -80,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await authService.logout(refreshToken);
       }
     } catch {
-      // Si el server falla, igual limpiamos localmente
+      // best-effort: si el server falla limpiamos localmente igual
     } finally {
       await tokenStorage.clearTokens();
       await tokenStorage.clearRememberMe();
@@ -108,6 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         logout,
         map,
+        refreshUser,
       }}
     >
       {children}

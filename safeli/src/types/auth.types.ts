@@ -41,6 +41,8 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  nroTelefono?: number | null;
+  foto?: string;
 }
 
 export interface AuthResponse {
@@ -61,11 +63,13 @@ export interface AuthContextType {
   login: (data: LoginRequest) => Promise<void>;
   signUp: (data: SignUpRequest) => Promise<void>;
   logout: () => Promise<void>;
-  map:(data: MapRequest) => Promise<void>;
+  map: (data: MapRequest) => Promise<void>;
+  // Revalida la sesión y actualiza los datos del usuario desde el backend.
+  // Útil para reflejar cambios de perfil o luego de un largo período inactivo.
+  refreshUser: () => Promise<void>;
+}
 
-  }
-  
-  export interface BackendLoginBody {
+export interface BackendLoginBody {
   username: string;
   contraseña: string;
 }
@@ -75,7 +79,7 @@ export interface BackendRegisterBody {
   apellido: string;
   email: string;
   username: string;
-  fechaNacimiento: string;  // YYYY-MM-DD
+  fechaNacimiento: string; // YYYY-MM-DD
   contraseña: string;
   nroTelefono?: number | null;
   foto?: string;

@@ -189,3 +189,78 @@ export async function getRoute(origin: LatLng, destination: LatLng): Promise<Rou
   }
   return getRouteGoogle(origin, destination);
 }
+
+// segerencisa buscador
+
+export interface PlaceSuggestion {
+  placeId: string;
+  description: string;
+  coordinates?: LatLng; // Disponible directamente desde Nominatim (web)
+}
+
+// Sugerencias en MOBILE: Google Places Autocomplete API
+async function getSuggestionsGoogle(input: string): Promise<PlaceSuggestion[]> {
+  try {
+    const url =
+      `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
+      `?input=${encodeURIComponent(input)}` +
+      `&language=es` +
+      `&region=ar` +
+      `&key=${GOOGLE_API_KEY}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.warn('[AUTOCOMPLETE] Status inesperado:', data.status);
+      return [];
+    }
+
+    return (data.predictions ?? []).map((p: any) => ({
+      placeId: p.place_id,
+      description: p.description,
+    }));
+  } catch (error) {
+    console.error('[AUTOCOMPLETE] Error Google:', error);
+    return [];
+  }
+}
+
+// Sugerencias en WEB: Nominatim (sin CORS, sin API key)
+async function getSuggestionsNominatim(input: string): Promise<PlaceSuggestion[]> {
+  try {
+    const url =
+      `https://nominatim.openstreetmap.org/search` +
+      `?q=${encodeURIComponent(input)}` +
+      `&format=json` +
+      `&limit=5` +
+      `&addressdetails=1` +
+      `&accept-language=es`;
+
+    const response = await fetch(url, {
+      headers: { 'Accept-Language': 'es' },
+    });
+    const data = await response.json();
+
+    return (data ?? []).map((item: any) => ({
+      placeId: String(item.place_id),
+      description: item.display_name,
+      coordinates: {
+        latitude: parseFloat(item.lat),
+        longitude: parseFloat(item.lon),
+      },
+    }));
+  } catch (error) {
+    console.error('[AUTOCOMPLETE] Error Nominatim:', error);
+    return [];
+  }
+}
+
+// Se fija si es web (Nominatim) o mobile (Google Places)
+export async function getPlaceSuggestions(input: string): Promise<PlaceSuggestion[]> {
+  if (!input.trim() || input.trim().length < 2) return [];
+  if (Platform.OS === 'web') {
+    return getSuggestionsNominatim(input);
+  }
+  return getSuggestionsGoogle(input);
+}
