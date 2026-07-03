@@ -12,7 +12,8 @@ export interface SignUpRequest {
   birthDate: string; // ISO format: YYYY-MM-DD
   password: string;
   nroTelefono?: number | null;
-  foto?: string;
+  // On web this can be a `File`; on native a `{ uri: string }` or a string URL.
+  foto?: string | File | { uri: string };
 }
 
 export interface ForgotPasswordRequest {

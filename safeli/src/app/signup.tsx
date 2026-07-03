@@ -25,7 +25,7 @@ interface FormFields {
   password: string;
   confirmPassword: string;
   nroTelefono: string;
-  foto: string;
+  foto: any;
 }
 
 interface FormErrors {
@@ -50,7 +50,7 @@ export default function SignUpScreen() {
     password: '',
     confirmPassword: '',
     nroTelefono: '',
-    foto: '',
+    foto: null,
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -59,7 +59,7 @@ export default function SignUpScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const updateField = (field: keyof FormFields, value: string | Date | null) => {
+  const updateField = (field: keyof FormFields, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -110,6 +110,10 @@ export default function SignUpScreen() {
     try {
       const parsedTelefono = form.nroTelefono.trim() ? parseInt(form.nroTelefono.trim(), 10) : undefined;
 
+      console.log('SignUp submit', { username: form.username, email: form.email, foto: !!form.foto });
+
+      const fotoValue = typeof form.foto === 'string' ? (form.foto.trim() ? form.foto.trim() : undefined) : form.foto ?? undefined;
+
       await signUp({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
@@ -118,7 +122,7 @@ export default function SignUpScreen() {
         birthDate: form.birthDate!.toISOString().split('T')[0], // YYYY-MM-DD
         password: form.password,
         nroTelefono: parsedTelefono,
-        foto: form.foto.trim() ? form.foto.trim() : undefined,
+        foto: fotoValue,
       });
     } catch (error: unknown) {
       const message =
@@ -220,17 +224,36 @@ export default function SignUpScreen() {
           />
         </View>
 
-        {/* Foto URL (Opcional) */}
+        {/* Foto (Opcional) - web: file input, native: URL/text fallback */}
         <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.input}
-            placeholder="URL de Foto de Perfil (Opcional)"
-            placeholderTextColor="#A0AEC0"
-            value={form.foto}
-            onChangeText={(t) => updateField('foto', t)}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          {Platform.OS === 'web' ? (
+            <div>
+              <input type="file" accept="image/*"
+                onChange={(e: any) => {
+                  const file = e?.target?.files?.[0];
+                  if (file) {
+                    updateField('foto', file as any);
+                  }
+                }}
+              />
+              {form.foto && typeof form.foto !== 'string' ? (
+                <Image
+                  source={{ uri: URL.createObjectURL(form.foto as any) }}
+                  style={{ width: 80, height: 80, marginTop: 8, borderRadius: 8 }}
+                />
+              ) : null}
+            </div>
+          ) : (
+            <TextInput
+              style={styles.input}
+              placeholder="Foto de Perfil (Opcional), url o archivo"
+              placeholderTextColor="#A0AEC0"
+              value={String(form.foto ?? '')}
+              onChangeText={(t) => updateField('foto', t)}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          )}
         </View>
 
         {/* Fecha de nacimiento */}
