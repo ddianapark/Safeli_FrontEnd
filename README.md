@@ -13,3 +13,8 @@ _db_
 3. npm i
 4. npm run dev
 
+para pushear:
+1. git add . en safeli y en db (cd safeli y cd db, para salir de la carpeta cd ..)
+2. en Safeli_FrontEnd git pull
+3. git add .
+4. git push
