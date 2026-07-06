@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
 import { router } from 'expo-router';
-import { useAuth } from '../context/authContext';
+import { useAuth } from '../context/authContext.tsx';
 import { FontAwesome6 } from '@expo/vector-icons';
 
 interface FormFields {

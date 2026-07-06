@@ -126,9 +126,16 @@ export const authService = {
     if (USE_MOCK_AUTH) return mockSignUp(data);
 
     try {
-      // If `foto` is a File or a native uri, send multipart/form-data
       let response;
-      const isFile = typeof (data.foto as any) === 'object' && (data.foto instanceof File || (data.foto as any).uri);
+      
+      // SOLUCIÓN ERROR LÍNEA 150: Casteamos a 'any' para permitir la validación polimórfica (Web y Native)
+      const fotoObj = data.foto as any;
+      const isFile = data.foto && typeof data.foto === 'object' && (
+        fotoObj instanceof File || 
+        'uri' in fotoObj || 
+        'name' in fotoObj
+      );
+
       if (isFile) {
         const formData = new FormData();
         formData.append('nombre', data.firstName);
@@ -136,31 +143,37 @@ export const authService = {
         formData.append('email', data.email);
         formData.append('username', data.username);
         formData.append('fechaNacimiento', data.birthDate);
-        formData.append('contraseña', data.password);
-        if (data.nroTelefono !== undefined && data.nroTelefono !== null) formData.append('nroTelefono', String(data.nroTelefono));
+        formData.append('password', data.password); // El backend acepta 'password' por multipart/form-data
+        if (data.nroTelefono !== undefined && data.nroTelefono !== null) {
+          formData.append('nroTelefono', String(data.nroTelefono));
+        }
 
-        if (data.foto instanceof File) {
-          formData.append('foto', data.foto);
-        } else if ((data.foto as any).uri) {
-          // For native URIs, fetch as blob and append (works on platforms that support fetch on file URIs)
-          const res = await fetch((data.foto as any).uri);
+        if (fotoObj instanceof File || ('name' in fotoObj && !('uri' in fotoObj))) {
+          formData.append('foto', data.foto as any);
+        } else if (fotoObj?.uri) {
+          const res = await fetch(fotoObj.uri);
           const blob = await res.blob();
           formData.append('foto', blob, 'photo.jpg');
         }
 
         console.log('Sending signup as FormData', { username: data.username, email: data.email, hasFile: true });
-        // Do not set Content-Type manually; the browser/node will add the proper boundary header.
-        response = await apiClient.post<BackendAuthResponse>('/auth/register', formData);
+        
+        response = await apiClient.post<BackendAuthResponse>('/auth/register', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
       } else {
+        // SOLUCIÓN ERROR LÍNEA 174: Cambiado 'password' por 'contraseña' para cumplir con BackendRegisterBody
         const body: BackendRegisterBody = {
           nombre: data.firstName,
           apellido: data.lastName,
           email: data.email,
           username: data.username,
           fechaNacimiento: data.birthDate,
-          contraseña: data.password,
+          contraseña: data.password, 
           nroTelefono: data.nroTelefono || null,
-          foto: (data.foto as string) || '-1',
+          foto: typeof data.foto === 'string' ? data.foto : '-1',
         };
         response = await apiClient.post<BackendAuthResponse>('/auth/register', body);
       }

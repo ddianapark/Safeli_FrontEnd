@@ -1,6 +1,6 @@
 // Toggle here to force mock auth and avoid real network calls.
 // Set to `true` during frontend development if the Safeli API isn't available.
-export const USE_MOCK_AUTH = true;
+export const USE_MOCK_AUTH = false;
 
 // ─── API base URL ─────────────────────────────────────────────────────────────
 // Si usás Expo con variables de entorno (app.config.ts / .env), reemplazá por:
