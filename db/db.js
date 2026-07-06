@@ -8,12 +8,27 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import postgres from 'postgres'; //important
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const connectionString = process.env.DATABASE_URL || ''; //important
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const databasePassword = process.env.DATABASE_PASSWORD || '';
+const databasePort = process.env.DB_PORT || '5432';
+const connectionString = process.env.DATABASE_URL
+  .replace('[DATABASE_PASSWORD]', databasePassword)
+  .replace('[DB_PORT]', databasePort);
+
+if (!connectionString) {
+  console.error('DATABASE_URL no está definido. Revisa el archivo .env raíz.');
+} else {
+  const safeUrl = connectionString.replace(/:[^:@]*@/, ':*****@');
+  console.log('DB connection string:', safeUrl);
+  if (connectionString.includes('[DATABASE_PASSWORD]') || connectionString.includes('[PORT]')) {
+    console.warn('DATABASE_URL contiene placeholders sin reemplazar. Se aplicó reemplazo automático con DATABASE_PASSWORD y DATABASE_PORT.');
+  }
+}
+
 const sql = postgres(connectionString); //important
 
 const app = express();
@@ -27,8 +42,27 @@ try {
 } catch (e) {
 	console.warn('Could not create uploads directory', e);
 }
-const upload = multer({ dest: uploadsDir });
-app.use('/uploads', express.static(uploadsDir));
+// 1. Configuración del almacenamiento para conservar extensiones
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.resolve(__dirname, 'uploads');
+    // Asegura que la carpeta exista
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Extraemos la extensión original (.png, .jpg, etc.)
+    const ext = path.extname(file.originalname) || '.jpg';
+    // Creamos un nombre único usando la fecha actual y un número aleatorio
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  }
+});
+
+const upload = multer({ storage: storage });
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health root route
 app.get('/', (req, res) => {
@@ -50,7 +84,12 @@ app.get('/', (req, res) => {
 // Simple register endpoint that accepts multipart/form-data (foto file)
 app.post('/auth/register', upload.single('foto'), async (req, res) => {
 	try {
-		const { nombre, apellido, email, username, fechaNacimiento, contraseña, nroTelefono } = req.body;
+		const { nombre, apellido, email, username, fechaNacimiento, contraseña, password, nroTelefono } = req.body;
+		const rawPassword = contraseña ?? password ?? '';
+		const parsedPhone = (() => {
+			const value = Number(nroTelefono);
+			return Number.isNaN(value) ? null : value;
+		})();
 
 		console.log('Received /auth/register request body:', {
 			nombre,
@@ -58,19 +97,24 @@ app.post('/auth/register', upload.single('foto'), async (req, res) => {
 			email,
 			username,
 			fechaNacimiento,
-			nroTelefono,
-			hasPassword: !!contraseña,
+			nroTelefono: parsedPhone,
+			hasPassword: !!rawPassword,
+			passwordSource: contraseña ? 'contraseña' : password ? 'password' : 'none',
 		});
+		console.log('Raw req.body keys:', Object.keys(req.body));
 		console.log('Received file:', req.file ? { originalname: req.file.originalname, filename: req.file.filename, mimetype: req.file.mimetype, size: req.file.size } : null);
 
-		let fotoUrl = req.body.foto ?? '-1';
+		let fotoUrl = '-1';
 		if (req.file) {
-			const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-			fotoUrl = fileUrl;
+			// Si Multer recibió el archivo con éxito, generamos su URL local
+			fotoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+		} else if (req.body.foto && typeof req.body.foto === 'string' && req.body.foto !== '[object Object]') {
+			// Si no es un archivo, pero es una cadena de texto o URL válida escrita a mano
+			fotoUrl = req.body.foto;
 		}
 
 		// Hash password (best-effort; you can replace with DB insert)
-		const hashed = contraseña ? await bcrypt.hash(contraseña, 10) : '';
+		const hashed = rawPassword ? await bcrypt.hash(rawPassword, 10) : '';
 
 		// Persist into DB using `sql` (postgres client). Expect table "Usuarios" with columns
 		// "nombre","apellido","email","username","fechaNacimiento","contraseña","nroTelefono","foto".
