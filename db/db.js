@@ -70,9 +70,56 @@ app.get('/', (req, res) => {
 				</head>
 				<body>
 					<h1>Auth mock server is running</h1>
-					<p>Available endpoints: <code>/auth/register</code>, <code>/uploads/*</code></p>
+					<p>Available endpoints: <code>/auth/register</code>, <code>/auth/login</code>, <code>/uploads/*</code></p>
 				</body>
 				</html>`);
+});
+
+app.post('/auth/login', async (req, res) => {
+	try {
+		const { username, contraseña, password } = req.body;
+		const rawPassword = contraseña ?? password ?? '';
+
+		if (!username || !rawPassword) {
+			return res.status(400).json({ message: 'Usuario y contraseña son requeridos.' });
+		}
+
+		const result = await sql`
+			SELECT * FROM "Usuarios"
+			WHERE email = ${username} OR username = ${username}
+		`;
+		const user = result[0];
+
+		if (!user) {
+			return res.status(401).json({ message: 'Usuario o contraseña incorrectos.' });
+		}
+
+		const passwordMatches = rawPassword ? await bcrypt.compare(rawPassword, user.contraseña) : false;
+		if (!passwordMatches) {
+			return res.status(401).json({ message: 'Usuario o contraseña incorrectos.' });
+		}
+
+		const accessToken = 'dev-access-token';
+		const refreshToken = 'dev-refresh-token';
+
+		return res.json({
+			accessToken,
+			refreshToken,
+			user: {
+				id: user.id,
+				nombre: user.nombre,
+				apellido: user.apellido,
+				email: user.email,
+				username: user.username,
+				nroTelefono: user.nroTelefono,
+				foto: user.foto,
+				fechaNacimiento: user.fechaNacimiento,
+			},
+		});
+	} catch (err) {
+		console.error('/auth/login error', err);
+		return res.status(500).json({ message: 'Server error' });
+	}
 });
 
 app.post('/auth/register', upload.single('foto'), async (req, res) => {
