@@ -133,7 +133,13 @@ apiClient.interceptors.response.use(
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     if (error.response?.status === 401 && !original._retry) {
-      original._retry = true;
+        // Do not attempt refresh for auth routes (login/register/refresh)
+        const url = original.url ?? '';
+        if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')) {
+          return Promise.reject(error);
+        }
+
+        original._retry = true;
       try {
         const newToken = await refreshWithQueue();
         if (original.headers) {

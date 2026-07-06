@@ -39,6 +39,7 @@ export default function LoginScreen() {
     try {
       await login({ username: username.trim(), password, rememberMe });
     } catch (error: unknown) {
+      console.error('Login error', error);
       const message =
       error instanceof Error ? error.message : 'Ocurrió un error. Intentá de nuevo.';
       setErrors((prev) => ({ ...prev, password: message }));
