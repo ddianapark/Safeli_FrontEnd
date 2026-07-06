@@ -21,9 +21,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // ─── Bootstrap ──────────────────────────────────────────────────────────────
-  // Revalida la sesión contra el backend en cada inicio de app.
-  // Si hay token + rememberMe → llama /auth/me para traer datos frescos.
-  // Si /auth/me falla (token vencido, red caída, etc.) → limpia y manda al login.
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
@@ -31,21 +28,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const accessToken = await tokenStorage.getAccessToken();
 
         if (!rememberMe || !accessToken) {
-          // Sin "recordarme" activo o sin token → limpiamos y vamos al login
           await tokenStorage.clearTokens();
           return;
         }
-
-        // Token existe: revalidamos contra el backend
-        // El interceptor de apiClient adjunta el Bearer automáticamente
-        // y hace el refresh si está por vencer.
         const freshUser = await authService.getMe();
         setUser(freshUser);
 
-        // Actualizamos el usuario cacheado con los datos frescos del backend
         await tokenStorage.saveUser(JSON.stringify(freshUser));
       } catch {
-        // Token inválido, vencido, o sin red — limpiamos todo
         await tokenStorage.clearTokens();
         await tokenStorage.clearRememberMe();
         await tokenStorage.clearUser();
@@ -58,15 +48,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     bootstrapAuth();
   }, []);
 
-  // revalida y actualiza datos del usuario desde el backend
-  // Útil para después de editar perfil, o al volver a primer plano
   const refreshUser = useCallback(async (): Promise<void> => {
     try {
       const freshUser = await authService.getMe();
       setUser(freshUser);
       await tokenStorage.saveUser(JSON.stringify(freshUser));
     } catch {
-      // Si falla la revalidación, la forzamos al login
       await tokenStorage.clearTokens();
       await tokenStorage.clearRememberMe();
       await tokenStorage.clearUser();
@@ -76,7 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = useCallback(async (data: LoginRequest): Promise<void> => {
-    // authService.login ya lanza errores con mensajes del backend
     const response = await authService.login(data);
     await tokenStorage.saveTokens(response.accessToken, response.refreshToken);
     await tokenStorage.saveUser(JSON.stringify(response.user));
@@ -101,7 +87,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await authService.logout(refreshToken);
       }
     } catch {
-      // best-effort: si el server falla limpiamos localmente igual
     } finally {
       await tokenStorage.clearTokens();
       await tokenStorage.clearRememberMe();

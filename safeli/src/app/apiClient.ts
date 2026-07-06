@@ -42,7 +42,6 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Helper decodificador rápido de JWT
 function parseJwt(token: string) {
   try {
     const base64Url = token.split('.')[1];
@@ -59,7 +58,6 @@ function parseJwt(token: string) {
   }
 }
 
-// Lógica de petición de Refresh pasándole el token por Header customizado
 async function refreshWithQueue(): Promise<string> {
   if (isRefreshing) {
     return new Promise((resolve, reject) => {
@@ -77,7 +75,6 @@ async function refreshWithQueue(): Promise<string> {
 
   return new Promise(async (resolve, reject) => {
     try {
-      // Mandamos el Refresh Token via Headers tal como pide tu flujo
       const response = await axios.post<{ accessToken: string; refreshToken: string }>(
         `${BASE_URL}/auth/refresh`,
         {},
@@ -95,7 +92,7 @@ async function refreshWithQueue(): Promise<string> {
       resolve(accessToken);
     } catch (err) {
       processQueue(err, null);
-      authEvents.emitForceLogout(); // Si falla el Refresh -> Expulsión al Login
+      authEvents.emitForceLogout(); 
       reject(err);
     } finally {
       isRefreshing = false;
@@ -112,12 +109,10 @@ apiClient.interceptors.request.use(
       const { exp = 0 } = parseJwt(accessToken);
       const secsLeft = exp - Math.floor(Date.now() / 1000);
       
-      // Si está a menos de 60 segundos de vencer hacemos refresh preventivo
       if (secsLeft < 60) {
         try {
           accessToken = await refreshWithQueue();
         } catch {
-          // Si falla de manera asíncrona, dejamos que prosiga para que lo capture el interceptor 401
         }
       }
     }
@@ -137,7 +132,6 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    // Si el servidor responde 401 Unauthorized (JWT Expirado en ruta protegida)
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
       try {
@@ -145,9 +139,8 @@ apiClient.interceptors.response.use(
         if (original.headers) {
           original.headers.Authorization = `Bearer ${newToken}`;
         }
-        return apiClient(original); // Reintenta petición original con el nuevo JWT
+        return apiClient(original); 
       } catch (refreshError) {
-        // Si el refresh token también expiró, eliminamos credenciales locales
         await tokenStorage.clearTokens();
         await tokenStorage.clearUser();
         authEvents.emitForceLogout();

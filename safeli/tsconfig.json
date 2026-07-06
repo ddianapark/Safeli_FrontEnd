@@ -1,8 +1,9 @@
 {
-  "extends": "expo/tsconfig.json",
+  "extends": "expo/tsconfig.base.json",
   "compilerOptions": {
     "strict": true,
     "skipLibCheck": true,
+    "jsx": "react-native",
     "baseUrl": ".",
     "paths": {
       "~/*": [

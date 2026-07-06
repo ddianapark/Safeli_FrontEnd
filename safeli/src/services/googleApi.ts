@@ -1,5 +1,4 @@
-import { Platform } from 'react-native'; //detectar el sistema operativo o dispositivo en el que se está ejecutando tu aplicación
-
+import { Platform } from 'react-native'; 
 const GOOGLE_API_KEY = 'AIzaSyCdskEeFYDGRFyPSdaJizI_Y_8jaDkW_O4';
 
 
@@ -190,8 +189,7 @@ export async function getRoute(origin: LatLng, destination: LatLng): Promise<Rou
   return getRouteGoogle(origin, destination);
 }
 
-// segerencisa buscador
-
+// sugerencias  buscador
 export interface PlaceSuggestion {
   placeId: string;
   description: string;

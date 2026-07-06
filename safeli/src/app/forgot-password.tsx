@@ -37,8 +37,7 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
     try {
       await authService.forgotPassword({ email: email.trim().toLowerCase() });
-      // Navigate to step 2 passing the email as a param
-      // Use query string to ensure the param is available to `useLocalSearchParams`
+
       router.push({
       pathname: '/verify-code',
       params: { email: email.trim().toLowerCase() }

@@ -8,7 +8,6 @@ const USER_KEY = 'safeli_user';
 const MOCK_USERS_KEY = 'safeli_mock_users';
 
 // ─── Platform-aware storage ───────────────────────────────────────────────────
-// expo-secure-store doesn't support web; fall back to localStorage on web.
 const storage = {
   async set(key: string, value: string): Promise<void> {
     if (Platform.OS === 'web') {
@@ -68,12 +67,10 @@ export const tokenStorage = {
     await storage.delete(USER_KEY);
   },
 
-  // Mock users management (for local/dev auth)
   async saveMockUser(userJson: string): Promise<void> {
     const existing = await storage.get(MOCK_USERS_KEY);
     const users = existing ? JSON.parse(existing) : [];
     const user = JSON.parse(userJson);
-    // Upsert by username or email
     const idx = users.findIndex((u: any) => u.username === user.username || u.email === user.email);
     if (idx > -1) users[idx] = { ...users[idx], ...user };
     else users.push(user);

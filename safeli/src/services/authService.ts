@@ -15,24 +15,16 @@ import {
 } from '../types/auth.types';
 import { AxiosError } from 'axios';
 
-// ─── Error normalizer ──────────────────────────────────────────────────────────
-// El backend usa Supabase, que puede devolver errores con esta forma:
-//   { message: '...', code: 'PGRST...', details: '...', hint: '...' }
-// O errores propios del backend Express:
-//   { message: '...' } | { error: '...' }
-
 function parseBackendError(error: unknown): Error {
   if (error instanceof AxiosError) {
     const status = error.response?.status;
     const data = error.response?.data;
 
-    // Extraemos el mensaje: backend propio o error de Supabase encapsulado
     const backendMessage: string | undefined =
       typeof data === 'string'
         ? data
         : data?.message ?? data?.error ?? data?.details ?? undefined;
 
-    // Códigos de error de PostgreSQL/Supabase que el backend puede reenviar
     const pgCode: string | undefined = data?.code;
 
     if (pgCode) {
@@ -128,7 +120,6 @@ export const authService = {
     try {
       let response;
       
-      // SOLUCIÓN ERROR LÍNEA 150: Casteamos a 'any' para permitir la validación polimórfica (Web y Native)
       const fotoObj = data.foto as any;
       const isFile = data.foto && typeof data.foto === 'object' && (
         fotoObj instanceof File || 
@@ -143,7 +134,7 @@ export const authService = {
         formData.append('email', data.email);
         formData.append('username', data.username);
         formData.append('fechaNacimiento', data.birthDate);
-        formData.append('password', data.password); // El backend acepta 'password' por multipart/form-data
+        formData.append('password', data.password); 
         if (data.nroTelefono !== undefined && data.nroTelefono !== null) {
           formData.append('nroTelefono', String(data.nroTelefono));
         }
@@ -164,7 +155,6 @@ export const authService = {
           },
         });
       } else {
-        // SOLUCIÓN ERROR LÍNEA 174: Cambiado 'password' por 'contraseña' para cumplir con BackendRegisterBody
         const body: BackendRegisterBody = {
           nombre: data.firstName,
           apellido: data.lastName,
@@ -187,8 +177,8 @@ export const authService = {
     if (USE_MOCK_AUTH) return;
     try {
       await apiClient.post('/auth/logout', { refreshToken });
-    } catch {
-      // best-effort: si el server falla limpiamos localmente igual
+    } catch (error) {
+      throw parseBackendError(error);
     }
   },
 
@@ -240,7 +230,6 @@ export const authService = {
   },
 };
 
-// Mock helpers
 async function mockLogin(data: LoginRequest): Promise<AuthResponse> {
   const { tokenStorage } = await import('./tokenStorage');
   const users = await tokenStorage.getMockUsers();
