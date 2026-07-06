@@ -36,26 +36,21 @@ app.use(cors());
 app.use(express.json());
 
 const uploadsDir = path.join(__dirname, 'uploads');
-// Ensure uploads directory exists
 try {
 	fs.mkdirSync(uploadsDir, { recursive: true });
 } catch (e) {
 	console.warn('Could not create uploads directory', e);
 }
-// 1. Configuración del almacenamiento para conservar extensiones
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = path.resolve(__dirname, 'uploads');
-    // Asegura que la carpeta exista
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    // Extraemos la extensión original (.png, .jpg, etc.)
     const ext = path.extname(file.originalname) || '.jpg';
-    // Creamos un nombre único usando la fecha actual y un número aleatorio
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + ext);
   }
@@ -64,24 +59,22 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Health root route
 app.get('/', (req, res) => {
 	res.type('html');
 	res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width,initial-scale=1">
-	<title>Auth mock server</title>
-</head>
-<body>
-	<h1>Auth mock server is running</h1>
-	<p>Available endpoints: <code>/auth/register</code>, <code>/uploads/*</code></p>
-</body>
-</html>`);
+				<html lang="en">
+				<head>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width,initial-scale=1">
+					<title>Auth mock server</title>
+				</head>
+				<body>
+					<h1>Auth mock server is running</h1>
+					<p>Available endpoints: <code>/auth/register</code>, <code>/uploads/*</code></p>
+				</body>
+				</html>`);
 });
 
-// Simple register endpoint that accepts multipart/form-data (foto file)
 app.post('/auth/register', upload.single('foto'), async (req, res) => {
 	try {
 		const { nombre, apellido, email, username, fechaNacimiento, contraseña, password, nroTelefono } = req.body;
@@ -106,18 +99,12 @@ app.post('/auth/register', upload.single('foto'), async (req, res) => {
 
 		let fotoUrl = '-1';
 		if (req.file) {
-			// Si Multer recibió el archivo con éxito, generamos su URL local
 			fotoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
 		} else if (req.body.foto && typeof req.body.foto === 'string' && req.body.foto !== '[object Object]') {
-			// Si no es un archivo, pero es una cadena de texto o URL válida escrita a mano
 			fotoUrl = req.body.foto;
 		}
-
-		// Hash password (best-effort; you can replace with DB insert)
 		const hashed = rawPassword ? await bcrypt.hash(rawPassword, 10) : '';
 
-		// Persist into DB using `sql` (postgres client). Expect table "Usuarios" with columns
-		// "nombre","apellido","email","username","fechaNacimiento","contraseña","nroTelefono","foto".
 		try {
 			const result = await sql`
 				INSERT INTO "Usuarios"
@@ -146,7 +133,6 @@ app.post('/auth/register', upload.single('foto'), async (req, res) => {
 			return res.json({ accessToken, refreshToken, user });
 		} catch (dbErr) {
 			console.error('DB insert error', dbErr);
-			// unique violation
 			if (dbErr && dbErr.code === '23505') {
 				return res.status(409).json({ message: 'El usuario o email ya está registrado.' });
 			}
