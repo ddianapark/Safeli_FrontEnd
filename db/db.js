@@ -30,8 +30,13 @@ if (!connectionString) {
 const sql = postgres(connectionString); //important
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
+app.options('*', cors());
 
 app.post('/api/calcular-camino-seguro', async (req, res) => {
   try {
