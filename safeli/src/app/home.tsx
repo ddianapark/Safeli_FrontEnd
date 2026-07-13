@@ -6,6 +6,8 @@ import MapRoute from '../components/MapRoute';
 import { geocodeAddress, getRoute, getPlaceSuggestions, LatLng, RouteResult, PlaceSuggestion } from '../services/googleApi';
 import { useAuth } from '../context/authContext';
 
+import { obtenerCaminoSeguro } from '../services/safeliApi';
+
 export default function HomeScreen() {
   const { logout } = useAuth();
 
@@ -58,10 +60,30 @@ export default function HomeScreen() {
   };
 
   // ─── Shared route resolver ─────────────────────────────────────────────────
-  const resolveAndRoute = async (geo: LatLng) => {
+  const resolveAndRouteGoogle = async (geo: LatLng) => {
     setDestination(geo);
     const r = await getRoute(userLocation, geo);
     setRoute(r);
+  };
+
+  // ─── Shared route resolver ─────────────────────────────────────────────────
+  const resolveAndRoute = async (geo: LatLng) => {
+    setDestination(geo);
+    try {
+      // 1. Mapeamos el formato de Expo Location al que espera tu API (Safeli)
+      const origen = { lat: userLocation.latitude, lng: userLocation.longitude };
+      const destino = { lat: geo.latitude, lng: geo.longitude };
+
+      // 2. Llamamos a tu backend en lugar de a Google
+      const rutaSegura = await obtenerCaminoSeguro(origen, destino);
+      
+      // 3. Guardamos el resultado en el estado
+      setRoute(rutaSegura);
+    } catch (error) {
+      console.error("Error al calcular la ruta segura:", error);
+      alert('No se pudo trazar un camino seguro hacia el destino.');
+      setRoute(null);
+    }
   };
 
   // ─── Buscar directo (botón o teclado) ─────────────────────────────────────

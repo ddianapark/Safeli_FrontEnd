@@ -13,19 +13,17 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const databasePassword = process.env.DATABASE_PASSWORD || '';
-const databasePort = process.env.DB_PORT || '5432';
 const connectionString = process.env.DATABASE_URL
-  .replace('[DATABASE_PASSWORD]', databasePassword)
-  .replace('[DB_PORT]', databasePort);
+	.replace('[DATABASE_PASSWORD]', process.env.DATABASE_PASSWORD || '')
+	.replace('[DB_PORT]', process.env.DB_PORT || '5432');
 
 if (!connectionString) {
   console.error('DATABASE_URL no está definido. Revisa el archivo .env raíz.');
 } else {
   const safeUrl = connectionString.replace(/:[^:@]*@/, ':*****@');
-  console.log('DB connection string:', safeUrl);
-  if (connectionString.includes('[DATABASE_PASSWORD]') || connectionString.includes('[PORT]')) {
-    console.warn('DATABASE_URL contiene placeholders sin reemplazar. Se aplicó reemplazo automático con DATABASE_PASSWORD y DATABASE_PORT.');
+  console.log('DB connection string:', connectionString.includes('[DATABASE_PASSWORD]') ? connectionString : safeUrl);
+  if (connectionString.includes('[DATABASE_PASSWORD]') || connectionString.includes('[DB_PORT]')) {
+    console.warn('DATABASE_URL contiene placeholders sin reemplazar. Se aplicó reemplazo automático con DATABASE_PASSWORD y DB_PORT.');
   }
 }
 

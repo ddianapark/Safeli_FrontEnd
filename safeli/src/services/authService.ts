@@ -12,7 +12,7 @@ import {
   BackendRegisterBody,
   BackendAuthResponse,
   BackendMeResponse,
-} from '../types/auth.types';
+} from '../types/auth_types';
 import { AxiosError } from 'axios';
 
 function parseBackendError(error: unknown): Error {

@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../context/authContext';
-import { FontAwesome6 } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -104,12 +103,14 @@ export default function LoginScreen() {
               style={styles.eyeButton}
               accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              <FontAwesome6
+              {/* <FontAwesome6
                 name={showPassword ? 'eye' : 'eye-slash'}
-                iconStyle="solid"
                 size={18}
                 color="#4A5568"
-              />
+              /> */}
+              <Text style={styles.eyeText}>
+                {showPassword ? '🙈' : '👁️'}
+              </Text>
             </TouchableOpacity>
           </View>
           {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
-  eyeIcon: {
+  eyeText: {
     fontSize: 18,
   },
   errorText: {

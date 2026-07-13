@@ -14,7 +14,7 @@ import {
 import DatePicker from 'react-native-date-picker';
 import { router } from 'expo-router';
 import { useAuth } from '../context/authContext';
-import { FontAwesome6 } from '@expo/vector-icons';
+import { endAsyncEvent } from 'react-native/Libraries/Performance/Systrace';
 
 interface FormFields {
   firstName: string;
@@ -327,12 +327,15 @@ export default function SignUpScreen() {
               style={styles.eyeButton}
               accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              <FontAwesome6
+              {/* <FontAwesome6
                 name={showPassword ? 'eye' : 'eye-slash'}
                 iconStyle="solid"
                 size={18}
                 color="#4A5568"
-              />
+              /> */}
+              <Text style={styles.eyeText}>
+                {showPassword ? '🙈' : '👁️'}
+              </Text>
             </TouchableOpacity>
           </View>
           {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -355,12 +358,15 @@ export default function SignUpScreen() {
               style={styles.eyeButton}
               accessibilityLabel={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              <FontAwesome6
+              {/* <FontAwesome6
                 name={showConfirmPassword ? 'eye' : 'eye-slash'}
                 iconStyle="solid"
                 size={18}
                 color="#4A5568"
-              />
+              /> */}
+              <Text style={styles.eyeText}>
+                {showConfirmPassword ? '🙈' : '👁️'}
+              </Text>
             </TouchableOpacity>
           </View>
           {errors.confirmPassword ? (
@@ -484,6 +490,10 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     fontSize: 18,
+  },
+  eyeText: {
+    fontSize: 18,
+    color: '#4A5568',
   },
   errorText: {
     color: '#E53E3E',

@@ -3,7 +3,7 @@ import { router, RelativePathString } from 'expo-router';
 import { authService } from '../services/authService';
 import { tokenStorage } from '../services/tokenStorage';
 import { authEvents } from '../app/apiClient';
-import { AuthContextType, LoginRequest, SignUpRequest, User, MapRequest } from '../types/auth.types';
+import { AuthContextType, LoginRequest, SignUpRequest, User, MapRequest } from '../types/auth_types';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
