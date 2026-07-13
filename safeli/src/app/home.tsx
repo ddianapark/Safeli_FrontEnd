@@ -6,7 +6,7 @@ import MapRoute from '../components/MapRoute';
 import { geocodeAddress, getRoute, getPlaceSuggestions, LatLng, RouteResult, PlaceSuggestion } from '../services/googleApi';
 import { useAuth } from '../context/authContext';
 
-import { obtenerCaminoSeguro } from '../services/safeliApi';
+import { RutaSegura, obtenerCaminoSeguro } from '../services/safeliApi';
 
 export default function HomeScreen() {
   const { logout } = useAuth();
@@ -14,7 +14,7 @@ export default function HomeScreen() {
   const [query, setQuery] = useState('');
   const [userLocation, setUserLocation] = useState<LatLng>({ latitude: -34.6037, longitude: -58.3816 });
   const [destination, setDestination] = useState<LatLng | null>(null);
-  const [route, setRoute] = useState<RouteResult | null>(null);
+  const [route, setRoute] = useState<any | RutaSegura | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [searching, setSearching] = useState(false);
 

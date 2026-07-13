@@ -19,33 +19,62 @@ const destinationIcon = new L.Icon({
 });
 
 interface FitBoundsProps {
-  routeData: any; // Ahora recibe el objeto GeoJSON completo
+  routeData: any;
 }
 
 function FitBounds({ routeData }: FitBoundsProps) {
   const map = useMap();
   useEffect(() => {
-    // Verificamos que sea un GeoJSON válido con características (features)
-    if (routeData && routeData.type === 'FeatureCollection' && routeData.features.length > 0) {
-      // Usamos la utilidad nativa de Leaflet para calcular los límites del GeoJSON
+    if (!routeData) return;
+    try {
       const geoJsonLayer = L.geoJSON(routeData);
       const bounds = geoJsonLayer.getBounds();
-      
       if (bounds.isValid()) {
         map.fitBounds(bounds, { padding: [60, 60] });
       }
+    } catch (e) {
+      console.warn('No se pudieron calcular los límites de la ruta', e);
     }
   }, [routeData, map]);
   return null;
 }
 
+// ─── Error boundary para que un dato de ruta malformado no tumbe toda la pantalla ───
+class GeoJSONErrorBoundary extends React.Component
+<{ children: React.ReactNode; data: any }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any) {
+    console.error('❌ Error dibujando la ruta. Geometry recibida:', JSON.stringify(this.props.data));
+    console.error(error);
+  }
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
 interface Props {
   userLocation: LatLng;
   destination: LatLng | null;
-  route: any; // Aceptamos cualquier objeto (el GeoJSON) en lugar de RouteResult
+  route: any;
 }
 
 export default function MapRoute({ userLocation, destination, route }: Props) {
+  const hasValidGeometry =
+    route?.geometry?.type && Array.isArray(route.geometry.coordinates);
+
+  useEffect(() => {
+    if (route) {
+      console.log('ROUTE RECIBIDO EN MAPA:', JSON.stringify(route.geometry?.type), route.geometry);
+    }
+  }, [route]);
+
   return (
     <MapContainer
       center={[userLocation.latitude, userLocation.longitude]}
@@ -58,10 +87,8 @@ export default function MapRoute({ userLocation, destination, route }: Props) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Marcador usuario */}
       <Marker position={[userLocation.latitude, userLocation.longitude]} />
 
-      {/* Marcador destino */}
       {destination && (
         <Marker
           position={[destination.latitude, destination.longitude]}
@@ -69,16 +96,16 @@ export default function MapRoute({ userLocation, destination, route }: Props) {
         />
       )}
 
-      {/* Renderizado de la ruta segura usando GeoJSON */}
-      {route && route.route && (
-      <>
-        <GeoJSON 
-          data={route.route} // Apuntamos a la propiedad 'route' del objeto que devuelve el backend
-          style={{ color: '#1D3557', weight: 5 }} 
-        />
-        <FitBounds routeData={route.route} />
-      </>
-    )}
+      {hasValidGeometry && (
+        <GeoJSONErrorBoundary data={route.geometry}>
+          <GeoJSON
+            key={JSON.stringify(route.geometry).length}
+            data={route.geometry}
+            style={{ color: '#1D3557', weight: 5 }}
+          />
+          <FitBounds routeData={route.geometry} />
+        </GeoJSONErrorBoundary>
+      )}
     </MapContainer>
   );
 }

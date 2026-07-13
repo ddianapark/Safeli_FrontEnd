@@ -47,35 +47,6 @@ app.use(cors({
 app.options('*', cors());
 app.use(express.json());
 
-app.post('/api/calcular-camino-seguro', async (req, res) => {
-  try {
-    const { origen, destino } = req.body; // Se espera { origen: {lat, lng}, destino: {lat, lng} }
-
-    // Obtenemos los puntos ordenados de menor a mayor peligrosidad (nivel_peligro)
-    // Usamos ST_Distance para encontrar los puntos más cercanos al origen y destino
-    const ruta = await sql`
-      SELECT delimitacion_id, punto, nivel_peligro
-      FROM vista_peligrosidad_puntos
-      WHERE ST_DWithin(punto::geometry, ST_SetSRID(ST_Point(${origen.lng}, ${origen.lat}), 4326)::geometry, 0.05)
-         OR ST_DWithin(punto::geometry, ST_SetSRID(ST_Point(${destino.lng}, ${destino.lat}), 4326)::geometry, 0.05)
-      ORDER BY nivel_peligro ASC;
-    `;
-
-    if (ruta.length === 0) {
-      return res.status(404).json({ message: "No se encontraron puntos seguros." });
-    }
-
-    return res.status(200).json({
-      success: true,
-      route: ruta,
-      message: "Ruta calculada basada en nivel de peligrosidad."
-    });
-  } catch (err) {
-    console.error('Error calculando ruta:', err);
-    return res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
 const uploadsDir = path.join(__dirname, 'uploads');
 try {
 	fs.mkdirSync(uploadsDir, { recursive: true });
