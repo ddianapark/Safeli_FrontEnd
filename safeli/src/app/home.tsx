@@ -79,10 +79,9 @@ export default function HomeScreen() {
       
       // 3. Guardamos el resultado en el estado
       setRoute(rutaSegura);
-    } catch (error) {
-      console.error("Error al calcular la ruta segura:", error);
-      alert('No se pudo trazar un camino seguro hacia el destino.');
-      setRoute(null);
+    } catch (error: Error | any) {
+      console.log("Error detallado:", JSON.stringify(error, null, 2));
+      alert(`Error: ${error.message}`);
     }
   };
 
