@@ -33,6 +33,50 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.post('/api/calcular-camino-seguro', async (req, res) => {
+  try {
+    const { origen, destino } = req.body;
+    
+    // 1. Aquí llamas a tu lógica real. 
+    // Como ya tienes la lógica en Vercel, deberías estar ejecutando una consulta SQL 
+    // similar a esta (esto es un ejemplo, adáptalo a tu función de pgRouting):
+    
+    const resultadoRuta = await sql`
+      SELECT ST_AsGeoJSON(geom) as geojson, 
+             ST_Length(geom::geography)/1000 as distancia_km,
+             ST_Length(geom::geography)/1000 / 5 * 60 as duracion_min 
+      FROM pgr_dijkstra(
+        'SELECT id, source, target, costo_seguridad as cost FROM tu_tabla_de_calles',
+        (SELECT id FROM tu_tabla_nodos ORDER BY geom <-> ST_SetSRID(ST_Point(${origen.lng}, ${origen.lat}), 4326) LIMIT 1),
+        (SELECT id FROM tu_tabla_nodos ORDER BY geom <-> ST_SetSRID(ST_Point(${destino.lng}, ${destino.lat}), 4326) LIMIT 1),
+        directed := false
+      ) as rutas
+      JOIN tu_tabla_de_calles ON edge = id;
+    `;
+
+    // 2. Transformas el resultado de tu DB al formato que espera el frontend
+    const rutaGeoJSON = {
+      type: "FeatureCollection",
+      features: resultadoRuta.map(r => ({
+        type: "Feature",
+        geometry: JSON.parse(r.geojson),
+        properties: {}
+      }))
+    };
+
+    // 3. Respondes con los datos reales calculados por tu base de datos
+    return res.status(200).json({
+      route: rutaGeoJSON,
+      distanceText: `${resultadoRuta[0].distancia_km.toFixed(1)} km`,
+      durationText: `${Math.round(resultadoRuta[0].duracion_min)} min`
+    });
+
+  } catch (error) {
+    console.error('Error procesando la ruta segura:', error);
+    return res.status(500).json({ error: "No se pudo calcular la ruta segura." });
+  }
+});
+
 const uploadsDir = path.join(__dirname, 'uploads');
 try {
 	fs.mkdirSync(uploadsDir, { recursive: true });
