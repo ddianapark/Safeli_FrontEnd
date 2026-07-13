@@ -35,8 +35,8 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
 app.options('*', cors());
+app.use(express.json());
 
 app.post('/api/calcular-camino-seguro', async (req, res) => {
   try {
