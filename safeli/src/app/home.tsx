@@ -195,9 +195,11 @@ export default function HomeScreen() {
       </View>
 
       {/* Route info */}
-      {route ? (
+      {route && route.durationText ? (
         <View style={styles.routeCard}>
-          <Text style={styles.routeText}>Duración: {route.durationText} • Distancia: {route.distanceText}</Text>
+          <Text style={styles.routeText}>
+            Duración: {route.durationText} • Distancia: {route.distanceText}
+          </Text>
         </View>
       ) : null}
 

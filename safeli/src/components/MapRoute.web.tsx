@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, GeoJSON, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { LatLng, RouteResult } from '../services/googleApi';
+import { LatLng } from '../services/googleApi';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -19,24 +19,30 @@ const destinationIcon = new L.Icon({
 });
 
 interface FitBoundsProps {
-  points: LatLng[];
+  routeData: any; // Ahora recibe el objeto GeoJSON completo
 }
 
-function FitBounds({ points }: FitBoundsProps) {
+function FitBounds({ routeData }: FitBoundsProps) {
   const map = useMap();
   useEffect(() => {
-    if (points.length > 1) {
-      const bounds = L.latLngBounds(points.map((p) => [p.latitude, p.longitude]));
-      map.fitBounds(bounds, { padding: [60, 60] });
+    // Verificamos que sea un GeoJSON válido con características (features)
+    if (routeData && routeData.type === 'FeatureCollection' && routeData.features.length > 0) {
+      // Usamos la utilidad nativa de Leaflet para calcular los límites del GeoJSON
+      const geoJsonLayer = L.geoJSON(routeData);
+      const bounds = geoJsonLayer.getBounds();
+      
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [60, 60] });
+      }
     }
-  }, [points, map]);
+  }, [routeData, map]);
   return null;
 }
 
 interface Props {
   userLocation: LatLng;
   destination: LatLng | null;
-  route: RouteResult | null;
+  route: any; // Aceptamos cualquier objeto (el GeoJSON) en lugar de RouteResult
 }
 
 export default function MapRoute({ userLocation, destination, route }: Props) {
@@ -63,16 +69,16 @@ export default function MapRoute({ userLocation, destination, route }: Props) {
         />
       )}
 
-      {/* Polyline ruta */}
-      {route && (
-        <>
-          <Polyline
-            positions={route.polylinePoints.map((p) => [p.latitude, p.longitude])}
-            pathOptions={{ color: '#1D3557', weight: 5 }}
-          />
-          <FitBounds points={route.polylinePoints} />
-        </>
-      )}
+      {/* Renderizado de la ruta segura usando GeoJSON */}
+      {route && route.route && (
+      <>
+        <GeoJSON 
+          data={route.route} // Apuntamos a la propiedad 'route' del objeto que devuelve el backend
+          style={{ color: '#1D3557', weight: 5 }} 
+        />
+        <FitBounds routeData={route.route} />
+      </>
+    )}
     </MapContainer>
   );
 }

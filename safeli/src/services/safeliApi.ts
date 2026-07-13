@@ -12,31 +12,15 @@ export interface Coordenadas {
  * llamando al backend propio de Safeli.
  */
 export const obtenerCaminoSeguro = async (origen: Coordenadas, destino: Coordenadas) => {
-  try {
-    const response = await fetch(`${BASE_URL}/calcular-camino-seguro`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      // Enviamos el origen y destino en el formato que tu backend acepta
-      body: JSON.stringify({
-        origen: origen,
-        destino: destino,
-      }),
-    });
+  const response = await fetch(`${BASE_URL}/calcular-camino-seguro`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ origen, destino }),
+  });
 
-    // Validamos que la respuesta sea exitosa
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Error al obtener la ruta segura desde la API de Safeli');
-    }
+  if (!response.ok) throw new Error('Error al obtener la ruta segura');
 
-    // Retornamos el GeoJSON limpio que tu backend ya procesa
-    const data = await response.json();
-    return data;
-    
-  } catch (error) {
-    console.error('❌ Error consumiendo la API de Safeli:', error);
-    throw error;
-  }
+  const data = await response.json();
+  // Retornamos todo el objeto para que el estado 'route' en home.tsx tenga los textos
+  return data; 
 };
