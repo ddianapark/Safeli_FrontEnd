@@ -35,45 +35,30 @@ app.use(express.json());
 
 app.post('/api/calcular-camino-seguro', async (req, res) => {
   try {
-    const { origen, destino } = req.body;
-    
-    // 1. Aquí llamas a tu lógica real. 
-    // Como ya tienes la lógica en Vercel, deberías estar ejecutando una consulta SQL 
-    // similar a esta (esto es un ejemplo, adáptalo a tu función de pgRouting):
-    
-    const resultadoRuta = await sql`
-      SELECT ST_AsGeoJSON(geom) as geojson, 
-             ST_Length(geom::geography)/1000 as distancia_km,
-             ST_Length(geom::geography)/1000 / 5 * 60 as duracion_min 
-      FROM pgr_dijkstra(
-        'SELECT id, source, target, costo_seguridad as cost FROM tu_tabla_de_calles',
-        (SELECT id FROM tu_tabla_nodos ORDER BY geom <-> ST_SetSRID(ST_Point(${origen.lng}, ${origen.lat}), 4326) LIMIT 1),
-        (SELECT id FROM tu_tabla_nodos ORDER BY geom <-> ST_SetSRID(ST_Point(${destino.lng}, ${destino.lat}), 4326) LIMIT 1),
-        directed := false
-      ) as rutas
-      JOIN tu_tabla_de_calles ON edge = id;
+    const { origen, destino } = req.body; // Se espera { origen: {lat, lng}, destino: {lat, lng} }
+
+    // Obtenemos los puntos ordenados de menor a mayor peligrosidad (nivel_peligro)
+    // Usamos ST_Distance para encontrar los puntos más cercanos al origen y destino
+    const ruta = await sql`
+      SELECT delimitacion_id, punto, nivel_peligro
+      FROM vista_peligrosidad_puntos
+      WHERE ST_DWithin(punto::geometry, ST_SetSRID(ST_Point(${origen.lng}, ${origen.lat}), 4326)::geometry, 0.05)
+         OR ST_DWithin(punto::geometry, ST_SetSRID(ST_Point(${destino.lng}, ${destino.lat}), 4326)::geometry, 0.05)
+      ORDER BY nivel_peligro ASC;
     `;
 
-    // 2. Transformas el resultado de tu DB al formato que espera el frontend
-    const rutaGeoJSON = {
-      type: "FeatureCollection",
-      features: resultadoRuta.map(r => ({
-        type: "Feature",
-        geometry: JSON.parse(r.geojson),
-        properties: {}
-      }))
-    };
+    if (ruta.length === 0) {
+      return res.status(404).json({ message: "No se encontraron puntos seguros." });
+    }
 
-    // 3. Respondes con los datos reales calculados por tu base de datos
     return res.status(200).json({
-      route: rutaGeoJSON,
-      distanceText: `${resultadoRuta[0].distancia_km.toFixed(1)} km`,
-      durationText: `${Math.round(resultadoRuta[0].duracion_min)} min`
+      success: true,
+      route: ruta,
+      message: "Ruta calculada basada en nivel de peligrosidad."
     });
-
-  } catch (error) {
-    console.error('Error procesando la ruta segura:', error);
-    return res.status(500).json({ error: "No se pudo calcular la ruta segura." });
+  } catch (err) {
+    console.error('Error calculando ruta:', err);
+    return res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
 
