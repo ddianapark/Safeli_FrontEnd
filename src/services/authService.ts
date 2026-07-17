@@ -1,5 +1,6 @@
 import apiClient from '../app/apiClient';
 import { USE_MOCK_AUTH } from '../constants/config';
+import { tokenStorage } from './tokenStorage';
 import {
   LoginRequest,
   SignUpRequest,
@@ -184,7 +185,6 @@ export const authService = {
 
   async getMe(): Promise<User> {
     if (USE_MOCK_AUTH) {
-      const { tokenStorage } = await import('./tokenStorage');
       const userJson = await tokenStorage.getUser();
       if (userJson) return JSON.parse(userJson) as User;
       throw new Error('No mock user saved');
@@ -231,7 +231,6 @@ export const authService = {
 };
 
 async function mockLogin(data: LoginRequest): Promise<AuthResponse> {
-  const { tokenStorage } = await import('./tokenStorage');
   const users = await tokenStorage.getMockUsers();
   const found = users.find(
     (u: any) => u.username === data.username || u.email === data.username,
@@ -255,7 +254,6 @@ async function mockLogin(data: LoginRequest): Promise<AuthResponse> {
 }
 
 async function mockSignUp(data: SignUpRequest): Promise<AuthResponse> {
-  const { tokenStorage } = await import('./tokenStorage');
   const users = await tokenStorage.getMockUsers();
   const exists = users.find(
     (u: any) => u.username === data.username || u.email === data.email,

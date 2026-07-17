@@ -1,6 +1,5 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { tokenStorage } from '../services/tokenStorage';
-import { AuthTokens } from '../types/auth_types';
 import { BASE_URL } from '../constants/config';
 
 type Listener = () => void;
