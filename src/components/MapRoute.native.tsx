@@ -63,23 +63,21 @@ export default function MapRouteNative({
         <Marker coordinate={destination} title="Destino" pinColor="#E63946" />
       )}
 
-      {/* 1. POLYLINES GOOGLE */}
       {googleNativeCoords.length > 0 && (
         <Polyline 
           coordinates={googleNativeCoords} 
-          strokeColor={activeRouteType === 'google' ? '#FF7A00' : 'rgba(160, 160, 160, 0.4)'} 
+          strokeColor={activeRouteType === 'google' ? '#FF7A00' : 'rgba(255, 122, 0, 0.35)'} 
           strokeWidth={activeRouteType === 'google' ? 6 : 4}
           zIndex={activeRouteType === 'google' ? 2 : 1}
           tappable={true}
           onPress={() => onSelectRoute('google')}
         />
       )}
-
-      {/* 2. POLYLINES SAFELI */}
+      
       {safeliNativeCoords.length > 0 && (
         <Polyline 
-          coordinates={safeliNativeCoords} 
-          strokeColor={activeRouteType === 'safeli' ? '#1D2DA4' : 'rgba(160, 160, 160, 0.4)'} 
+          coordinates={safeliNativeCoords}
+          strokeColor={activeRouteType === 'safeli' ? '#1D2DA4' : 'rgba(29, 45, 164, 0.35)'} 
           strokeWidth={activeRouteType === 'safeli' ? 6 : 4}
           zIndex={activeRouteType === 'safeli' ? 2 : 1}
           tappable={true}

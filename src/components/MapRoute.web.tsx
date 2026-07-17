@@ -103,14 +103,13 @@ export default function MapRouteWeb({
         <Marker position={[destination.latitude, destination.longitude]} icon={destinationIcon} />
       )}
 
-      {/* 1. CAPA DE GOOGLE (CAMINO RÁPIDO) */}
       {googleLeafletCoords.length > 0 && (
         <Polyline
           positions={googleLeafletCoords}
           pathOptions={{
-            color: activeRouteType === 'google' ? '#FF7A00' : '#A0A0A0',
+            color: '#FF7A00',
             weight: activeRouteType === 'google' ? 6 : 4,
-            opacity: activeRouteType === 'google' ? 1.0 : 0.4
+            opacity: activeRouteType === 'google' ? 1.0 : 0.5
           }}
           eventHandlers={{
             click: () => onSelectRoute('google')
@@ -118,16 +117,15 @@ export default function MapRouteWeb({
         />
       )}
 
-      {/* 2. CAPA DE SAFELI (CAMINO SEGURO) */}
       {hasSafeliGeometry && (
         <GeoJSONErrorBoundary data={safeliRoute.geometry}>
           <GeoJSON
             key={`safeli-web-${activeRouteType}-${JSON.stringify(safeliRoute.geometry).length}`}
             data={safeliRoute.geometry as any}
             style={() => ({
-              color: activeRouteType === 'safeli' ? '#1D2DA4' : '#A0A0A0',
+              color: '#1D2DA4',
               weight: activeRouteType === 'safeli' ? 6 : 4,
-              opacity: activeRouteType === 'safeli' ? 1.0 : 0.4
+              opacity: activeRouteType === 'safeli' ? 1.0 : 0.5
             })}
             eventHandlers={{
               click: () => onSelectRoute('safeli')
@@ -136,7 +134,6 @@ export default function MapRouteWeb({
         </GeoJSONErrorBoundary>
       )}
 
-      {/* Componente dinámico de encuadre */}
       <FitBounds safeliRoute={safeliRoute} googleRoute={googleRoute} />
     </MapContainer>
   );

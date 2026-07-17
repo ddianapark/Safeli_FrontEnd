@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, Alert, Platform } from 'react-native';
 import { Stack, useSegments, router } from 'expo-router';
 import { AuthProvider, useAuth } from '../context/authContext';
 
@@ -12,6 +12,19 @@ const SAFELI_BLUE = '#1A3FA8';
 
 // Rutas públicas — accesibles sin sesión
 const PUBLIC_ROUTES = new Set(['index', 'signup', 'forgot-password', 'verify-code', 'reset-password']);
+
+// Handler para las opciones que están congeladas temporalmente
+const handlePlaceholderPress = (nombreBoton: string) => {
+  const mensaje = `La sección de "${nombreBoton}" estará disponible próximamente.`;
+
+  if (Platform.OS === 'web') {
+    // Fallback para navegadores web
+    alert(`Módulo en Desarrollo\n\n${mensaje}`);
+  } else {
+    // Alerta nativa para iOS y Android
+    Alert.alert("Módulo en Desarrollo", mensaje);
+  }
+};
 
 function AuthGuard() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -46,10 +59,8 @@ function GlobalFooter({ currentSegment }: { currentSegment: string }) {
 
   return (
     <View style={styles.footerContainer}>
-      {/* Barra superior del menú */}
       <View style={styles.tabBar}>
         
-        {/* Inicio */}
         <TouchableOpacity 
           style={styles.tabItem} 
           onPress={() => router.push('/home')}
@@ -58,26 +69,22 @@ function GlobalFooter({ currentSegment }: { currentSegment: string }) {
           <Text style={[styles.tabText, currentSegment === 'home' && styles.tabTextActive]}>Inicio</Text>
         </TouchableOpacity>
 
-        {/* Reportes */}
-        <TouchableOpacity style={styles.tabItem} onPress={() => Alert.alert("Módulo en desarrollo")}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => handlePlaceholderPress('Reportes')}>
           <FeedbackIcon />
           <Text style={styles.tabText}>Reportes</Text>
         </TouchableOpacity>
 
-        {/* Botón Central SOS */}
         <View style={styles.sosContainer}>
-          <TouchableOpacity style={styles.sosButton} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.sosButton} onPress={() => handlePlaceholderPress('SOS')} activeOpacity={0.8}>
             <Text style={styles.sosText}>SOS</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Destinos */}
-        <TouchableOpacity style={styles.tabItem} onPress={() => Alert.alert("Módulo en desarrollo")}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => handlePlaceholderPress('Destinos')}>
           <DestinosIcon />
           <Text style={styles.tabText}>Destinos</Text>
         </TouchableOpacity>
 
-        {/* Perfil */}
         <TouchableOpacity 
           style={styles.tabItem} 
           onPress={() => router.push('/perfil')}
@@ -88,7 +95,6 @@ function GlobalFooter({ currentSegment }: { currentSegment: string }) {
 
       </View>
 
-      {/* Bloque azul sólido inferior del prototipo */}
       <View style={styles.bottomBlueBar} />
     </View>
   );
@@ -103,22 +109,18 @@ function RootLayout() {
     return <SplashLoader />;
   }
 
-  // Obtenemos el segmento actual de la ruta activa
   const currentSegment = (segments[0] as string) ?? '';
 
-  // Condición estricta: Solo mostrar en 'home' o 'perfil'
   const mostrarFooter = currentSegment === 'home' || currentSegment === 'perfil';
 
   return (
     <View style={styles.container}>
       <AuthGuard />
       
-      {/* Contenedor principal de pantallas */}
       <View style={styles.screenContent}>
         <Stack screenOptions={{ headerShown: false }} />
       </View>
 
-      {/* Render condicional del Footer integrado */}
       {mostrarFooter && <GlobalFooter currentSegment={currentSegment} />}
     </View>
   );
