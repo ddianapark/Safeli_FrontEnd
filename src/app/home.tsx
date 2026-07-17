@@ -254,9 +254,6 @@ export default function HomeScreen() {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity onPress={limpiarTodo}>
-          <Text style={styles.logoutText}>Inicio</Text>
-        </TouchableOpacity>
         <TouchableOpacity onPress={logout} style={styles.logoutButton}>
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
