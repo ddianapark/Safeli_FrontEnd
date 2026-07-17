@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, GeoJSON, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { LatLng } from '../services/googleApi';
+import { LatLng, RouteResult } from '../services/googleApi';
+import { RutaSegura } from '../services/safeliApi';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -19,61 +20,70 @@ const destinationIcon = new L.Icon({
 });
 
 interface FitBoundsProps {
-  routeData: any;
+  safeliRoute: RutaSegura | null;
+  googleRoute: RouteResult | null;
 }
 
-function FitBounds({ routeData }: FitBoundsProps) {
+// Escala la vista del mapa para englobar de manera óptima ambas opciones de ruta
+function FitBounds({ safeliRoute, googleRoute }: FitBoundsProps) {
   const map = useMap();
+  
   useEffect(() => {
-    if (!routeData) return;
-    try {
-      const geoJsonLayer = L.geoJSON(routeData);
-      const bounds = geoJsonLayer.getBounds();
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [60, 60] });
-      }
-    } catch (e) {
-      console.warn('No se pudieron calcular los límites de la ruta', e);
+    const group = new L.FeatureGroup();
+
+    if (safeliRoute?.geometry?.coordinates) {
+      try {
+        const safeliLayer = L.geoJSON(safeliRoute.geometry as any);
+        group.addLayer(safeliLayer);
+      } catch (e) { console.warn(e); }
     }
-  }, [routeData, map]);
+
+    if (googleRoute?.polylinePoints && googleRoute.polylinePoints.length > 0) {
+      const latLngs = googleRoute.polylinePoints.map(p => [p.latitude, p.longitude] as [number, number]);
+      const googleLayer = L.polyline(latLngs);
+      group.addLayer(googleLayer);
+    }
+
+    const bounds = group.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [60, 60] });
+    }
+  }, [safeliRoute, googleRoute, map]);
+
   return null;
 }
 
-// ─── Error boundary para que un dato de ruta malformado no tumbe toda la pantalla ───
-class GeoJSONErrorBoundary extends React.Component
-<{ children: React.ReactNode; data: any }, { hasError: boolean }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch(error: any) {
-    console.error('❌ Error dibujando la ruta. Geometry recibida:', JSON.stringify(this.props.data));
-    console.error(error);
-  }
-  render() {
-    if (this.state.hasError) return null;
-    return this.props.children;
-  }
+class GeoJSONErrorBoundary extends React.Component<{ children: React.ReactNode; data: any }, { hasError: boolean }> {
+  constructor(props: any) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: any) { console.error('Error dibujando GeoJSON Safeli:', error); }
+  render() { if (this.state.hasError) return null; return this.props.children; }
 }
 
 interface Props {
   userLocation: LatLng;
   destination: LatLng | null;
-  route: any;
+  safeliRoute: RutaSegura | null;
+  googleRoute: RouteResult | null;
+  activeRouteType: 'safeli' | 'google';
+  onSelectRoute: (type: 'safeli' | 'google') => void;
 }
 
-export default function MapRoute({ userLocation, destination, route }: Props) {
-  const hasValidGeometry =
-    route?.geometry?.type && Array.isArray(route.geometry.coordinates);
+export default function MapRouteWeb({
+  userLocation,
+  destination,
+  safeliRoute,
+  googleRoute,
+  activeRouteType,
+  onSelectRoute
+}: Props) {
 
-  useEffect(() => {
-    if (route) {
-      console.log('ROUTE RECIBIDO EN MAPA:', JSON.stringify(route.geometry?.type), route.geometry);
-    }
-  }, [route]);
+  const hasSafeliGeometry = safeliRoute?.geometry?.type && Array.isArray(safeliRoute.geometry.coordinates);
+  
+  // Transformación del polyline de Google a arrays para Leaflet ([lat, lng])
+  const googleLeafletCoords = googleRoute?.polylinePoints
+    ? googleRoute.polylinePoints.map(p => [p.latitude, p.longitude] as [number, number])
+    : [];
 
   return (
     <MapContainer
@@ -90,22 +100,44 @@ export default function MapRoute({ userLocation, destination, route }: Props) {
       <Marker position={[userLocation.latitude, userLocation.longitude]} />
 
       {destination && (
-        <Marker
-          position={[destination.latitude, destination.longitude]}
-          icon={destinationIcon}
+        <Marker position={[destination.latitude, destination.longitude]} icon={destinationIcon} />
+      )}
+
+      {/* 1. CAPA DE GOOGLE (CAMINO RÁPIDO) */}
+      {googleLeafletCoords.length > 0 && (
+        <Polyline
+          positions={googleLeafletCoords}
+          pathOptions={{
+            color: activeRouteType === 'google' ? '#FF7A00' : '#A0A0A0',
+            weight: activeRouteType === 'google' ? 6 : 4,
+            opacity: activeRouteType === 'google' ? 1.0 : 0.4
+          }}
+          eventHandlers={{
+            click: () => onSelectRoute('google')
+          }}
         />
       )}
 
-      {hasValidGeometry && (
-        <GeoJSONErrorBoundary data={route.geometry}>
+      {/* 2. CAPA DE SAFELI (CAMINO SEGURO) */}
+      {hasSafeliGeometry && (
+        <GeoJSONErrorBoundary data={safeliRoute.geometry}>
           <GeoJSON
-            key={JSON.stringify(route.geometry).length}
-            data={route.geometry}
-            style={{ color: '#1D3557', weight: 5 }}
+            key={`safeli-web-${activeRouteType}-${JSON.stringify(safeliRoute.geometry).length}`}
+            data={safeliRoute.geometry as any}
+            style={() => ({
+              color: activeRouteType === 'safeli' ? '#1D2DA4' : '#A0A0A0',
+              weight: activeRouteType === 'safeli' ? 6 : 4,
+              opacity: activeRouteType === 'safeli' ? 1.0 : 0.4
+            })}
+            eventHandlers={{
+              click: () => onSelectRoute('safeli')
+            }}
           />
-          <FitBounds routeData={route.geometry} />
         </GeoJSONErrorBoundary>
       )}
+
+      {/* Componente dinámico de encuadre */}
+      <FitBounds safeliRoute={safeliRoute} googleRoute={googleRoute} />
     </MapContainer>
   );
 }

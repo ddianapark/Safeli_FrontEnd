@@ -1,6 +1,4 @@
 import apiClient from '../app/apiClient';
-import { USE_MOCK_AUTH } from '../constants/config';
-import { tokenStorage } from './tokenStorage';
 import {
   LoginRequest,
   SignUpRequest,
@@ -101,7 +99,6 @@ function mapBackendAuthResponse(raw: BackendAuthResponse): AuthResponse {
 export const authService = {
 
   async login(data: LoginRequest): Promise<AuthResponse> {
-    if (USE_MOCK_AUTH) return mockLogin(data);
 
     try {
       const body: BackendLoginBody = {
@@ -116,14 +113,13 @@ export const authService = {
   },
 
   async signUp(data: SignUpRequest): Promise<AuthResponse> {
-    if (USE_MOCK_AUTH) return mockSignUp(data);
 
     try {
       let response;
       
       const fotoObj = data.foto as any;
       const isFile = data.foto && typeof data.foto === 'object' && (
-        fotoObj instanceof File || 
+        (typeof File !== 'undefined' && fotoObj instanceof File) || 
         'uri' in fotoObj || 
         'name' in fotoObj
       );
@@ -175,7 +171,6 @@ export const authService = {
   },
 
   async logout(refreshToken: string): Promise<void> {
-    if (USE_MOCK_AUTH) return;
     try {
       await apiClient.post('/auth/logout', { refreshToken });
     } catch (error) {
@@ -184,12 +179,6 @@ export const authService = {
   },
 
   async getMe(): Promise<User> {
-    if (USE_MOCK_AUTH) {
-      const userJson = await tokenStorage.getUser();
-      if (userJson) return JSON.parse(userJson) as User;
-      throw new Error('No mock user saved');
-    }
-
     try {
       const response = await apiClient.get<BackendMeResponse>('/auth/me');
       return mapBackendUser(response.data);
@@ -199,7 +188,6 @@ export const authService = {
   },
 
   async forgotPassword(data: ForgotPasswordRequest): Promise<void> {
-    if (USE_MOCK_AUTH) return;
     try {
       await apiClient.post('/auth/forgot-password', data);
     } catch (error) {
@@ -208,7 +196,6 @@ export const authService = {
   },
 
   async verifyCode(data: VerifyCodeRequest): Promise<void> {
-    if (USE_MOCK_AUTH) return;
     try {
       await apiClient.post('/auth/verify-code', data);
     } catch (error) {
@@ -217,7 +204,6 @@ export const authService = {
   },
 
   async resetPassword(data: ResetPasswordRequest): Promise<void> {
-    if (USE_MOCK_AUTH) return;
     try {
       await apiClient.post('/auth/reset-password', {
         email: data.email,
@@ -229,53 +215,3 @@ export const authService = {
     }
   },
 };
-
-async function mockLogin(data: LoginRequest): Promise<AuthResponse> {
-  const users = await tokenStorage.getMockUsers();
-  const found = users.find(
-    (u: any) => u.username === data.username || u.email === data.username,
-  );
-  if (!found) throw new Error('Usuario no registrado');
-  if (found.password !== data.password) throw new Error('Credenciales inválidas');
-
-  return {
-    accessToken: 'mock-access-token',
-    refreshToken: 'mock-refresh-token',
-    user: {
-      id: found.id ?? 0,
-      username: found.username,
-      email: found.email,
-      firstName: found.firstName,
-      lastName: found.lastName ?? '',
-      ...(found.nroTelefono ? { nroTelefono: found.nroTelefono } : {}),
-      ...(found.foto ? { foto: found.foto } : {}),
-    } as User,
-  };
-}
-
-async function mockSignUp(data: SignUpRequest): Promise<AuthResponse> {
-  const users = await tokenStorage.getMockUsers();
-  const exists = users.find(
-    (u: any) => u.username === data.username || u.email === data.email,
-  );
-  if (exists) throw new Error('El usuario o email ya está registrado.');
-
-  const mockStored = {
-    id: Date.now(),
-    username: data.username,
-    email: data.email,
-    firstName: data.firstName,
-    lastName: data.lastName,
-    password: data.password,
-    nroTelefono: data.nroTelefono || null,
-    foto: data.foto || '-1',
-  };
-  await tokenStorage.saveMockUser(JSON.stringify(mockStored));
-  const { password, ...userNoPass } = mockStored;
-
-  return {
-    accessToken: 'mock-access-token',
-    refreshToken: 'mock-refresh-token',
-    user: userNoPass as User,
-  };
-}

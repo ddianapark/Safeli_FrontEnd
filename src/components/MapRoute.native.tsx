@@ -2,26 +2,49 @@ import React, { useRef, useEffect } from 'react';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { StyleSheet } from 'react-native';
 import { LatLng, RouteResult } from '../services/googleApi';
+import { RutaSegura } from '../services/safeliApi';
 
 interface Props {
   userLocation: LatLng;
   destination: LatLng | null;
-  route: RouteResult | null;
+  safeliRoute: RutaSegura | null;
+  googleRoute: RouteResult | null;
+  activeRouteType: 'safeli' | 'google';
+  onSelectRoute: (type: 'safeli' | 'google') => void;
 }
 
-export default function MapRoute({ userLocation, destination, route }: Props) {
+export default function MapRouteNative({
+  userLocation,
+  destination,
+  safeliRoute,
+  googleRoute,
+  activeRouteType,
+  onSelectRoute
+}: Props) {
   const mapRef = useRef<MapView>(null);
 
+  // Mapeamos el GeoJSON de Safeli a LatLng plano nativo
+  const safeliNativeCoords = safeliRoute?.geometry?.coordinates
+    ? safeliRoute.geometry.coordinates.map((coord: [number, number]) => ({
+        latitude: coord[1],
+        longitude: coord[0],
+      }))
+    : [];
+
+  const googleNativeCoords = googleRoute?.polylinePoints || [];
+
   useEffect(() => {
-    if (route && route.polylinePoints.length > 0) {
+    const allCoords = [...safeliNativeCoords, ...googleNativeCoords];
+    
+    if (allCoords.length > 0) {
       setTimeout(() => {
-        mapRef.current?.fitToCoordinates(route.polylinePoints, {
-          edgePadding: { top: 80, right: 50, bottom: 220, left: 50 },
+        mapRef.current?.fitToCoordinates(allCoords, {
+          edgePadding: { top: 80, right: 50, bottom: 260, left: 50 },
           animated: true,
         });
       }, 300);
     }
-  }, [route]);
+  }, [safeliRoute, googleRoute]);
 
   return (
     <MapView
@@ -39,11 +62,28 @@ export default function MapRoute({ userLocation, destination, route }: Props) {
       {destination && (
         <Marker coordinate={destination} title="Destino" pinColor="#E63946" />
       )}
-      {route && (
-        <Polyline
-          coordinates={route.polylinePoints}
-          strokeColor="#1D3557"
-          strokeWidth={4}
+
+      {/* 1. POLYLINES GOOGLE */}
+      {googleNativeCoords.length > 0 && (
+        <Polyline 
+          coordinates={googleNativeCoords} 
+          strokeColor={activeRouteType === 'google' ? '#FF7A00' : 'rgba(160, 160, 160, 0.4)'} 
+          strokeWidth={activeRouteType === 'google' ? 6 : 4}
+          zIndex={activeRouteType === 'google' ? 2 : 1}
+          tappable={true}
+          onPress={() => onSelectRoute('google')}
+        />
+      )}
+
+      {/* 2. POLYLINES SAFELI */}
+      {safeliNativeCoords.length > 0 && (
+        <Polyline 
+          coordinates={safeliNativeCoords} 
+          strokeColor={activeRouteType === 'safeli' ? '#1D2DA4' : 'rgba(160, 160, 160, 0.4)'} 
+          strokeWidth={activeRouteType === 'safeli' ? 6 : 4}
+          zIndex={activeRouteType === 'safeli' ? 2 : 1}
+          tappable={true}
+          onPress={() => onSelectRoute('safeli')}
         />
       )}
     </MapView>

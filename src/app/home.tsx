@@ -5,7 +5,6 @@ import * as Location from 'expo-location';
 import MapRoute from '../components/MapRoute';
 import { geocodeAddress, getRoute, getPlaceSuggestions, LatLng, RouteResult, PlaceSuggestion } from '../services/googleApi';
 import { useAuth } from '../context/authContext';
-
 import { RutaSegura, obtenerCaminoSeguro } from '../services/safeliApi';
 
 export default function HomeScreen() {
@@ -14,15 +13,19 @@ export default function HomeScreen() {
   const [query, setQuery] = useState('');
   const [userLocation, setUserLocation] = useState<LatLng>({ latitude: -34.6037, longitude: -58.3816 });
   const [destination, setDestination] = useState<LatLng | null>(null);
-  const [route, setRoute] = useState<any | RutaSegura | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [searching, setSearching] = useState(false);
 
-  // sugerencias buscador
+  // Estados duales corregidos
+  const [safeliRoute, setSafeliRoute] = useState<RutaSegura | null>(null);
+  const [googleRoute, setGoogleRoute] = useState<RouteResult | null>(null);
+  const [activeRouteType, setActiveRouteType] = useState<'safeli' | 'google'>('safeli');
+
+  // Sugerencias buscador
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  
   useEffect(() => {
     (async () => {
       try {
@@ -41,7 +44,6 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  // ─── Debounced suggestions fetch ───────────────────────────────────────────
   const handleQueryChange = (text: string) => {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -59,33 +61,38 @@ export default function HomeScreen() {
     }, 350);
   };
 
-  // ─── Shared route resolver ─────────────────────────────────────────────────
-  const resolveAndRouteGoogle = async (geo: LatLng) => {
+  // ─── Resolver unificado para traer AMBAS rutas en paralelo ──────────────────
+  const resolveAndRouteDual = async (geo: LatLng) => {
     setDestination(geo);
-    const r = await getRoute(userLocation, geo);
-    setRoute(r);
-  };
+    
+    // Ejecutamos ambas solicitudes concurrentemente para no ralentizar la app
+    const [googleRes, safeliRes] = await Promise.allSettled([
+      getRoute(userLocation, geo),
+      obtenerCaminoSeguro(userLocation, geo)
+    ]);
 
-  // ─── Shared route resolver ─────────────────────────────────────────────────
-  const resolveAndRoute = async (geo: LatLng) => {
-    setDestination(geo);
-    try {
-      // 1. Mapeamos el formato de Expo Location al que espera tu API (Safeli)
-      const origen = { lat: userLocation.latitude, lng: userLocation.longitude };
-      const destino = { lat: geo.latitude, lng: geo.longitude };
+    if (googleRes.status === 'fulfilled' && googleRes.value) {
+      setGoogleRoute(googleRes.value);
+    } else {
+      console.warn('Error al obtener la ruta de Google');
+      setGoogleRoute(null);
+    }
 
-      // 2. Llamamos a tu backend en lugar de a Google
-      const rutaSegura = await obtenerCaminoSeguro(origen, destino);
-      
-      // 3. Guardamos el resultado en el estado
-      setRoute(rutaSegura);
-    } catch (error: Error | any) {
-      console.log("Error detallado:", JSON.stringify(error, null, 2));
-      alert(`Error: ${error.message}`);
+    if (safeliRes.status === 'fulfilled' && safeliRes.value) {
+      setSafeliRoute(safeliRes.value);
+    } else {
+      console.warn('Error al obtener la ruta de Safeli');
+      setSafeliRoute(null);
+    }
+
+    // Por defecto, ponemos el foco inicial en Safeli si existe
+    if (safeliRes.status === 'fulfilled' && safeliRes.value) {
+      setActiveRouteType('safeli');
+    } else {
+      setActiveRouteType('google');
     }
   };
 
-  // ─── Buscar directo (botón o teclado) ─────────────────────────────────────
   const handleSearch = async () => {
     if (!query.trim()) return;
     Keyboard.dismiss();
@@ -97,19 +104,19 @@ export default function HomeScreen() {
       if (!geo) {
         alert('No se encontró la dirección');
         setDestination(null);
-        setRoute(null);
+        setSafeliRoute(null);
+        setGoogleRoute(null);
         return;
       }
-      await resolveAndRoute(geo);
+      await resolveAndRouteDual(geo);
     } catch (e) {
       console.error(e);
-      alert('Error buscando la ruta');
+      alert('Error buscando las rutas');
     } finally {
       setSearching(false);
     }
   };
 
-  // ─── Seleccionar sugerencia ────────────────────────────────────────────────
   const handleSelectSuggestion = async (suggestion: PlaceSuggestion) => {
     setQuery(suggestion.description);
     setSuggestions([]);
@@ -117,19 +124,27 @@ export default function HomeScreen() {
     Keyboard.dismiss();
     setSearching(true);
     try {
-      // Nominatim ya trae coordenadas; Google las resuelve vía geocode
       const geo = suggestion.coordinates ?? await geocodeAddress(suggestion.description);
       if (!geo) {
         alert('No se encontró la dirección');
         return;
       }
-      await resolveAndRoute(geo);
+      await resolveAndRouteDual(geo);
     } catch (e) {
       console.error(e);
-      alert('Error buscando la ruta');
+      alert('Error buscando las rutas');
     } finally {
       setSearching(false);
     }
+  };
+
+  const limpiarTodo = () => {
+    setDestination(null);
+    setSafeliRoute(null);
+    setGoogleRoute(null);
+    setQuery('');
+    setSuggestions([]);
+    setShowSuggestions(false);
   };
 
   if (loadingLocation) {
@@ -154,58 +169,93 @@ export default function HomeScreen() {
           onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
         />
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          {searching
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.searchButtonText}>Buscar</Text>}
+          {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchButtonText}>Buscar</Text>}
         </TouchableOpacity>
       </View>
 
       {/* Suggestions dropdown */}
       {showSuggestions && (
         <View style={styles.suggestionsContainer}>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
-          >
+          <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator={false}>
             {suggestions.map((item, index) => (
               <TouchableOpacity
                 key={item.placeId}
-                style={[
-                  styles.suggestionItem,
-                  index < suggestions.length - 1 && styles.suggestionItemBorder,
-                ]}
+                style={[styles.suggestionItem, index < suggestions.length - 1 && styles.suggestionItemBorder]}
                 onPress={() => handleSelectSuggestion(item)}
                 activeOpacity={0.7}
               >
                 <Text style={styles.suggestionIcon}>📍</Text>
-                <Text style={styles.suggestionText} numberOfLines={2}>
-                  {item.description}
-                </Text>
+                <Text style={styles.suggestionText} numberOfLines={2}>{item.description}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
       )}
 
-      {/* Map */}
+      {/* Map pasándole todas las propiedades del desarrollo dual */}
       <View style={styles.mapContainer}>
-        <MapRoute userLocation={userLocation} destination={destination} route={route} />
+        <MapRoute 
+          userLocation={userLocation} 
+          destination={destination ?? userLocation} 
+          safeliRoute={safeliRoute}
+          googleRoute={googleRoute}
+          activeRouteType={activeRouteType}
+          onSelectRoute={setActiveRouteType}
+        />
       </View>
 
-      {/* Route info */}
-      {route && route.durationText ? (
-        <View style={styles.routeCard}>
-          <Text style={styles.routeText}>
-            Duración: {route.durationText} • Distancia: {route.distanceText}
-          </Text>
-        </View>
-      ) : null}
+      {/* Panel de rutas inspirado en el prototipo */}
+      {(safeliRoute || googleRoute) && (
+        <View style={styles.protoCardContainer}>
+          
+          {/* Fila Camino Safeli */}
+          {safeliRoute && (
+            <TouchableOpacity 
+              style={[styles.protoRow, activeRouteType === 'safeli' && styles.protoRowActive]}
+              onPress={() => setActiveRouteType('safeli')}
+            >
+              <View style={styles.protoLeft}>
+                <Text style={styles.protoTitle}>Camino Safeli</Text>
+                <Text style={styles.protoStars}>★★★★★</Text>
+              </View>
+              <View style={styles.protoRight}>
+                <Text style={styles.protoTime}>{safeliRoute.durationText || 'N/D'}</Text>
+                {activeRouteType === 'safeli' && (
+                  <TouchableOpacity style={styles.protoStartButton}>
+                    <Text style={styles.protoStartText}>Iniciar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
 
-      {/* footer */}
+          {/* Fila Camino Rápido */}
+          {googleRoute && (
+            <TouchableOpacity 
+              style={[styles.protoRow, activeRouteType === 'google' && styles.protoRowActive]}
+              onPress={() => setActiveRouteType('google')}
+            >
+              <View style={styles.protoLeft}>
+                <Text style={styles.protoTitle}>Camino Rápido</Text>
+                <Text style={styles.protoStarsMuted}>★★☆☆☆</Text>
+              </View>
+              <View style={styles.protoRight}>
+                <Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>
+                {activeRouteType === 'google' && (
+                  <TouchableOpacity style={styles.protoStartButton}>
+                    <Text style={styles.protoStartText}>Iniciar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity onPress={() => { setDestination(null); setRoute(null); setQuery(''); setSuggestions([]); setShowSuggestions(false); }}>
-          <Text style={styles.logoutText}>home</Text>
+        <TouchableOpacity onPress={limpiarTodo}>
+          <Text style={styles.logoutText}>Inicio</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={logout} style={styles.logoutButton}>
           <Text style={styles.logoutText}>Cerrar sesión</Text>
@@ -225,7 +275,7 @@ const styles = StyleSheet.create({
   searchBar: {
     position: 'absolute',
     top: SEARCH_TOP,
-    left: 60,
+    left: 16,
     right: 16,
     zIndex: 200,
     flexDirection: 'row',
@@ -234,22 +284,27 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#D6E4F7',
+    backgroundColor: '#fff',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#D6E4F7',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
   },
   searchButton: {
     backgroundColor: '#1A3FA8',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
     borderRadius: 8,
   },
   searchButtonText: { color: '#fff', fontWeight: '700' },
   suggestionsContainer: {
     position: 'absolute',
     top: SUGGESTIONS_TOP,
-    left: 60,
+    left: 16,
     right: 16,
     zIndex: 199,
     backgroundColor: '#fff',
@@ -262,41 +317,79 @@ const styles = StyleSheet.create({
     elevation: 6,
     overflow: 'hidden',
   },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    gap: 10,
-  },
-  suggestionItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF2F8',
-  },
-  suggestionIcon: {
-    fontSize: 15,
-  },
-  suggestionText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#1A202C',
-    lineHeight: 18,
-  },
+  suggestionItem: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11, gap: 10 },
+  suggestionItemBorder: { borderBottomWidth: 1, borderBottomColor: '#EEF2F8' },
+  suggestionIcon: { fontSize: 15 },
+  suggestionText: { flex: 1, fontSize: 13, color: '#1A202C', lineHeight: 18 },
   mapContainer: { flex: 1 },
-  routeCard: {
+  
+  // Estilos Prototipo Contenedor Inferior
+  protoCardContainer: {
     position: 'absolute',
     bottom: 72,
     left: 16,
     right: 16,
     backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1D2DA4',
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
-  routeText: { color: '#1A202C', fontWeight: '600' },
+  protoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEF2F8',
+  },
+  protoRowActive: {
+    backgroundColor: '#F0F3FF',
+  },
+  protoLeft: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  protoTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1D2DA4',
+  },
+  protoStars: {
+    color: '#1D2DA4',
+    fontSize: 14,
+  },
+  protoStarsMuted: {
+    color: '#A0A0A0',
+    fontSize: 14,
+  },
+  protoRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  protoTime: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000',
+  },
+  protoStartButton: {
+    backgroundColor: '#1D2DA4',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  protoStartText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+
   footer: {
     height: 56,
     backgroundColor: '#fff',
@@ -305,9 +398,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 12,
+    gap: 24,
   },
-  welcome: { color: '#1A202C' },
   logoutButton: { marginLeft: 12 },
-  logoutText: { color: '#1A3FA8', fontWeight: '700' },
+  logoutText: { color: '#1D2DA4', fontWeight: '700' },
 });

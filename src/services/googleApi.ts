@@ -1,6 +1,13 @@
-import { Platform } from 'react-native'; 
-const GOOGLE_API_KEY = 'AIzaSyCdskEeFYDGRFyPSdaJizI_Y_8jaDkW_O4';
+import { Platform } from 'react-native';
 
+const GOOGLE_API_KEY =
+  typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_GOOGLE_API_KEY
+    ? process.env.EXPO_PUBLIC_GOOGLE_API_KEY
+    : '';
+
+if (!GOOGLE_API_KEY) {
+  console.warn('[googleApi] GOOGLE_API_KEY no definido');
+}
 
 export interface LatLng {
   latitude: number;

@@ -3,8 +3,8 @@ const BASE_URL = 'http://localhost:3000/api/calcular-camino-seguro';
 
 // Interfaz para las coordenadas, ideal para la integración con los mapas en el frontend
 export interface Coordenadas {
-  lat: number;
-  lng: number;
+  latitude: number;
+  longitude: number;
 }
 
 export interface RutaSegura {
