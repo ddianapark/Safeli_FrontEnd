@@ -1,20 +1,19 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Alert,
   Image,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
-import { router } from 'expo-router';
 import { useAuth } from '../context/authContext';
-import { endAsyncEvent } from 'react-native/Libraries/Performance/Systrace';
 
 interface FormFields {
   firstName: string;
@@ -166,6 +165,7 @@ export default function SignUpScreen() {
             value={form.firstName}
             onChangeText={(t) => updateField('firstName', t)}
             autoCapitalize="words"
+            autoComplete="off"
           />
           {errors.firstName ? <Text style={styles.errorText}>{errors.firstName}</Text> : null}
         </View>
@@ -179,6 +179,7 @@ export default function SignUpScreen() {
             value={form.lastName}
             onChangeText={(t) => updateField('lastName', t)}
             autoCapitalize="words"
+            autoComplete="off"
           />
           {errors.lastName ? <Text style={styles.errorText}>{errors.lastName}</Text> : null}
         </View>
@@ -194,6 +195,7 @@ export default function SignUpScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="off"
           />
           {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
         </View>
@@ -208,6 +210,9 @@ export default function SignUpScreen() {
             onChangeText={(t) => updateField('username', t)}
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="off"
+            textContentType="none"
+            importantForAutofill="no"
           />
           {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
         </View>
@@ -221,6 +226,7 @@ export default function SignUpScreen() {
             value={form.nroTelefono}
             onChangeText={(t) => updateField('nroTelefono', t)}
             keyboardType="numeric"
+            autoComplete="off"
           />
         </View>
 
@@ -228,7 +234,10 @@ export default function SignUpScreen() {
         <View style={styles.inputWrapper}>
           {Platform.OS === 'web' ? (
             <div>
-              <input type="file" accept="image/*"
+              <input
+                type="file"
+                accept="image/*"
+                autoComplete="off"
                 onChange={(e: any) => {
                   const file = e?.target?.files?.[0];
                   if (file) {
@@ -252,6 +261,7 @@ export default function SignUpScreen() {
               onChangeText={(t) => updateField('foto', t)}
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="off"
             />
           )}
         </View>
@@ -262,6 +272,7 @@ export default function SignUpScreen() {
             <View style={styles.dateInput}>
               <input
                 type="date"
+                autoComplete="off"
                 value={form.birthDate ? form.birthDate.toISOString().split('T')[0] : ''}
                 onChange={(e: any) => {
                   const val = e?.target?.value;
@@ -321,6 +332,9 @@ export default function SignUpScreen() {
               onChangeText={(t) => updateField('password', t)}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
+              autoComplete="new-password"
+              textContentType="newPassword"
+              importantForAutofill="no"
             />
             <TouchableOpacity
               onPress={() => setShowPassword((p) => !p)}
@@ -352,6 +366,9 @@ export default function SignUpScreen() {
               onChangeText={(t) => updateField('confirmPassword', t)}
               secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
+              autoComplete="new-password"
+              textContentType="newPassword"
+              importantForAutofill="no"
             />
             <TouchableOpacity
               onPress={() => setShowConfirmPassword((p) => !p)}

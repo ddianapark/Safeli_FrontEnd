@@ -1,5 +1,5 @@
 // Definimos la URL base de tu API en producción
-const BASE_URL = 'http://localhost:3001/api/calcular-camino-seguro';
+const BASE_URL = 'http://localhost:3000/api/calcular-camino-seguro';
 
 // Interfaz para las coordenadas, ideal para la integración con los mapas en el frontend
 export interface Coordenadas {
