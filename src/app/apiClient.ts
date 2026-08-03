@@ -1,6 +1,6 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { tokenStorage } from '../services/tokenStorage';
+import axios, { AxiosError, AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { BASE_URL } from '../constants/config';
+import { tokenStorage } from '../services/tokenStorage';
 
 type Listener = () => void;
 const forceLogoutListeners: Listener[] = [];
@@ -91,7 +91,13 @@ async function refreshWithQueue(): Promise<string> {
       resolve(accessToken);
     } catch (err) {
       processQueue(err, null);
-      authEvents.emitForceLogout(); 
+      // Only emit force logout if the refresh endpoint actually rejected the token (401/403)
+      // A 404 means the endpoint doesn't exist — don't log the user out for that
+      const axiosErr = err as AxiosError;
+      const status = axiosErr?.response?.status;
+      if (status === 401 || status === 403) {
+        authEvents.emitForceLogout();
+      }
       reject(err);
     } finally {
       isRefreshing = false;
@@ -105,14 +111,20 @@ apiClient.interceptors.request.use(
     let accessToken = await tokenStorage.getAccessToken();
 
     if (accessToken) {
-      const { exp = 0 } = parseJwt(accessToken);
-      const secsLeft = exp - Math.floor(Date.now() / 1000);
-      
-      if (secsLeft < 60) {
-        try {
-          accessToken = await refreshWithQueue();
-        } catch {
+      try {
+        const { exp = 0 } = parseJwt(accessToken);
+        const secsLeft = exp - Math.floor(Date.now() / 1000);
+
+        // Solo refrescar si el token tiene expiración válida y está por vencer
+        if (exp > 0 && secsLeft < 60) {
+          try {
+            accessToken = await refreshWithQueue();
+          } catch {
+            // Si el refresh falla, continuar con el token actual
+          }
         }
+      } catch {
+        // Si no se puede parsear el token (ej: token fijo de dev), continuar sin refresh
       }
     }
 
@@ -146,9 +158,14 @@ apiClient.interceptors.response.use(
         }
         return apiClient(original); 
       } catch (refreshError) {
-        await tokenStorage.clearTokens();
-        await tokenStorage.clearUser();
-        authEvents.emitForceLogout();
+        // Only force logout if the refresh itself returned 401/403, not a network/404 error
+        const refreshAxiosError = refreshError as AxiosError;
+        const refreshStatus = refreshAxiosError?.response?.status;
+        if (refreshStatus === 401 || refreshStatus === 403 || !refreshAxiosError?.response) {
+          await tokenStorage.clearTokens();
+          await tokenStorage.clearUser();
+          authEvents.emitForceLogout();
+        }
         return Promise.reject(refreshError);
       }
     }

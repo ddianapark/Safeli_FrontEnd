@@ -1,9 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
 import { useAuth } from '../context/authContext';
 import { UpdateProfileRequest } from '../types/auth_types';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const SAFELI_BLUE = '#1F2B99';
 const INPUT_BG = '#F0F7FF';
@@ -12,6 +16,7 @@ export default function ProfileScreen() {
   const { user, logout, updateProfile, changePassword } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [isInfoExpanded, setIsInfoExpanded] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -178,126 +183,157 @@ export default function ProfileScreen() {
         <Text style={styles.usernameText}>
           {user?.username || 'Usuario Safeli'}
         </Text>
-        <TouchableOpacity
-          activeOpacity={0.6}
-          onPress={() => {
-            if (isEditing) {
-              setIsEditing(false);
-              if (user) {
-                setProfileForm({
-                  firstName: user.firstName ?? '',
-                  lastName: user.lastName ?? '',
-                  username: user.username ?? '',
-                  email: user.email ?? '',
-                  birthDate: user.birthDate ?? '',
-                  nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
-                });
-              }
-            } else {
-              setIsEditing(true);
-            }
-          }}
-        >
-          <Ionicons name={isEditing ? 'close' : 'pencil'} size={16} color="#000" style={styles.pencilIcon} />
-        </TouchableOpacity>
       </View>
 
-      <View style={styles.fieldsContainer}>
-        {isEditing ? (
-          <>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                value={profileForm.firstName}
-                placeholder="Nombre"
-                onChangeText={(text) => setProfileForm((prev) => ({ ...prev, firstName: text }))}
-              />
-              {profileErrors.firstName ? <Text style={styles.errorText}>{profileErrors.firstName}</Text> : null}
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                value={profileForm.lastName}
-                placeholder="Apellido"
-                onChangeText={(text) => setProfileForm((prev) => ({ ...prev, lastName: text }))}
-              />
-              {profileErrors.lastName ? <Text style={styles.errorText}>{profileErrors.lastName}</Text> : null}
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                value={profileForm.username}
-                placeholder="Nombre de usuario"
-                onChangeText={(text) => setProfileForm((prev) => ({ ...prev, username: text }))}
-              />
-              {profileErrors.username ? <Text style={styles.errorText}>{profileErrors.username}</Text> : null}
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                value={profileForm.email}
-                placeholder="Email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                onChangeText={(text) => setProfileForm((prev) => ({ ...prev, email: text }))}
-              />
-              {profileErrors.email ? <Text style={styles.errorText}>{profileErrors.email}</Text> : null}
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                value={profileForm.birthDate}
-                placeholder="Fecha de nacimiento (YYYY-MM-DD)"
-                onChangeText={(text) => setProfileForm((prev) => ({ ...prev, birthDate: text }))}
-              />
-            </View>
-
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                value={profileForm.nroTelefono}
-                placeholder="Teléfono"
-                keyboardType="number-pad"
-                onChangeText={(text) => setProfileForm((prev) => ({ ...prev, nroTelefono: text }))}
-              />
-              {profileErrors.nroTelefono ? <Text style={styles.errorText}>{profileErrors.nroTelefono}</Text> : null}
-            </View>
-
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} disabled={isSavingProfile}>
-              {isSavingProfile ? <Text style={styles.saveButtonText}>Guardando...</Text> : <Text style={styles.saveButtonText}>Guardar cambios</Text>}
+      {/* Acordeón de información del usuario */}
+      <View style={styles.accordionContainer}>
+        <TouchableOpacity
+          style={styles.accordionHeader}
+          onPress={() => {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setIsInfoExpanded((prev) => !prev);
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={styles.accordionHeaderLeft}>
+            <Ionicons name="person-circle-outline" size={22} color={SAFELI_BLUE} />
+            <Text style={styles.accordionHeaderText}>Información personal</Text>
+          </View>
+          <View style={styles.accordionHeaderRight}>
+            <TouchableOpacity
+              activeOpacity={0.6}
+              onPress={() => {
+                if (isEditing) {
+                  setIsEditing(false);
+                  if (user) {
+                    setProfileForm({
+                      firstName: user.firstName ?? '',
+                      lastName: user.lastName ?? '',
+                      username: user.username ?? '',
+                      email: user.email ?? '',
+                      birthDate: user.birthDate ?? '',
+                      nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
+                    });
+                  }
+                } else {
+                  setIsEditing(true);
+                  if (!isInfoExpanded) {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    setIsInfoExpanded(true);
+                  }
+                }
+              }}
+            >
+              <Ionicons name={isEditing ? 'close' : 'pencil'} size={16} color="#000" style={styles.pencilIcon} />
             </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>Nombre</Text>
-              <Text style={styles.infoValue}>{user?.firstName || 'Sin completar'}</Text>
-            </View>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>Apellido</Text>
-              <Text style={styles.infoValue}>{user?.lastName || 'Sin completar'}</Text>
-            </View>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>Nombre de usuario</Text>
-              <Text style={styles.infoValue}>{user?.username || 'Sin completar'}</Text>
-            </View>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text>
-            </View>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
-              <Text style={styles.infoValue}>{user?.birthDate || 'Sin completar'}</Text>
-            </View>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>Teléfono</Text>
-              <Text style={styles.infoValue}>{user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}</Text>
-            </View>
-          </>
+            <Ionicons
+              name={isInfoExpanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={SAFELI_BLUE}
+              style={{ marginLeft: 8 }}
+            />
+          </View>
+        </TouchableOpacity>
+
+        {isInfoExpanded && (
+          <View style={styles.fieldsContainer}>
+            {isEditing ? (
+              <>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    value={profileForm.firstName}
+                    placeholder="Nombre"
+                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, firstName: text }))}
+                  />
+                  {profileErrors.firstName ? <Text style={styles.errorText}>{profileErrors.firstName}</Text> : null}
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    value={profileForm.lastName}
+                    placeholder="Apellido"
+                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, lastName: text }))}
+                  />
+                  {profileErrors.lastName ? <Text style={styles.errorText}>{profileErrors.lastName}</Text> : null}
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    value={profileForm.username}
+                    placeholder="Nombre de usuario"
+                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, username: text }))}
+                  />
+                  {profileErrors.username ? <Text style={styles.errorText}>{profileErrors.username}</Text> : null}
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    value={profileForm.email}
+                    placeholder="Email"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, email: text }))}
+                  />
+                  {profileErrors.email ? <Text style={styles.errorText}>{profileErrors.email}</Text> : null}
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    value={profileForm.birthDate}
+                    placeholder="Fecha de nacimiento (YYYY-MM-DD)"
+                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, birthDate: text }))}
+                  />
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={styles.input}
+                    value={profileForm.nroTelefono}
+                    placeholder="Teléfono"
+                    keyboardType="number-pad"
+                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, nroTelefono: text }))}
+                  />
+                  {profileErrors.nroTelefono ? <Text style={styles.errorText}>{profileErrors.nroTelefono}</Text> : null}
+                </View>
+
+                <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} disabled={isSavingProfile}>
+                  {isSavingProfile ? <Text style={styles.saveButtonText}>Guardando...</Text> : <Text style={styles.saveButtonText}>Guardar cambios</Text>}
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Nombre</Text>
+                  <Text style={styles.infoValue}>{user?.firstName || 'Sin completar'}</Text>
+                </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Apellido</Text>
+                  <Text style={styles.infoValue}>{user?.lastName || 'Sin completar'}</Text>
+                </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Nombre de usuario</Text>
+                  <Text style={styles.infoValue}>{user?.username || 'Sin completar'}</Text>
+                </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Email</Text>
+                  <Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text>
+                </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
+                  <Text style={styles.infoValue}>{user?.birthDate || 'Sin completar'}</Text>
+                </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Teléfono</Text>
+                  <Text style={styles.infoValue}>{user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}</Text>
+                </View>
+              </>
+            )}
+          </View>
         )}
       </View>
 
@@ -378,7 +414,12 @@ const styles = StyleSheet.create({
   usernameRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 20 },
   usernameText: { fontSize: 18, fontWeight: '600', color: '#333' },
   pencilIcon: { marginTop: 2 },
-  fieldsContainer: { paddingHorizontal: 24, gap: 12, marginBottom: 20 },
+  accordionContainer: { marginHorizontal: 24, marginBottom: 20, borderRadius: 16, borderWidth: 1, borderColor: '#DCE9F7', overflow: 'hidden' },
+  accordionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: INPUT_BG, paddingHorizontal: 14, paddingVertical: 14 },
+  accordionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  accordionHeaderText: { fontSize: 15, fontWeight: '700', color: SAFELI_BLUE },
+  accordionHeaderRight: { flexDirection: 'row', alignItems: 'center' },
+  fieldsContainer: { paddingHorizontal: 14, paddingVertical: 14, gap: 12, backgroundColor: '#fff' },
   inputWrapper: { gap: 4 },
   input: { backgroundColor: INPUT_BG, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: '#333', borderWidth: 1, borderColor: '#DCE9F7' },
   infoCard: { backgroundColor: INPUT_BG, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },

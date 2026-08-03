@@ -204,25 +204,8 @@ export const authService = {
       if (data.nroTelefono !== undefined) payload.nroTelefono = data.nroTelefono;
       if (data.foto !== undefined) payload.foto = typeof data.foto === 'string' ? data.foto : '-1';
 
-      const candidates = [
-        { method: 'patch' as const, path: '/auth/profile', body: payload },
-        { method: 'patch' as const, path: '/auth/update-profile', body: payload },
-        { method: 'patch' as const, path: '/auth/me', body: payload },
-        { method: 'put' as const, path: '/auth/profile', body: payload },
-        { method: 'put' as const, path: '/auth/me', body: payload },
-      ];
-
-      let lastError: unknown;
-      for (const candidate of candidates) {
-        try {
-          const response = await (apiClient as any)[candidate.method](candidate.path, candidate.body);
-          return await normalizeUserResponse(response);
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      throw parseBackendError(lastError ?? new Error('No se pudo actualizar el perfil.'));
+      const response = await apiClient.patch('/auth/update-profile', payload);
+      return await normalizeUserResponse(response);
     } catch (error) {
       throw parseBackendError(error);
     }
@@ -236,24 +219,7 @@ export const authService = {
         confirmPassword: data.confirmPassword,
       };
 
-      const candidates = [
-        { method: 'post' as const, path: '/auth/change-password', body: payload },
-        { method: 'post' as const, path: '/auth/password', body: payload },
-        { method: 'post' as const, path: '/auth/update-password', body: payload },
-        { method: 'put' as const, path: '/auth/password', body: payload },
-      ];
-
-      let lastError: unknown;
-      for (const candidate of candidates) {
-        try {
-          await (apiClient as any)[candidate.method](candidate.path, candidate.body);
-          return;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-
-      throw parseBackendError(lastError ?? new Error('No se pudo cambiar la contraseña.'));
+      await apiClient.post('/auth/change-password', payload);
     } catch (error) {
       throw parseBackendError(error);
     }
