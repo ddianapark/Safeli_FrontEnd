@@ -35,6 +35,7 @@ interface FormErrors {
   birthDate?: string;
   password?: string;
   confirmPassword?: string;
+  nroTelefono?: string;
 }
 
 export default function SignUpScreen() {
@@ -58,9 +59,27 @@ export default function SignUpScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const validatePhoneNumber = (value: string): string | undefined => {
+    const trimmedValue = value.trim();
+
+    if (!trimmedValue) return undefined;
+
+    if (!/^\d{10}$/.test(trimmedValue)) {
+      return 'Ingresá un número de celular válido de 10 numeros en formato 11xxxxxxxx';
+    }
+
+    return undefined;
+  };
+
   const updateField = (field: keyof FormFields, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    if (errors[field as keyof FormErrors]) {
+
+    if (field === 'nroTelefono') {
+      setErrors((prev) => ({
+        ...prev,
+        nroTelefono: validatePhoneNumber(String(value)),
+      }));
+    } else if (errors[field as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
@@ -97,6 +116,11 @@ export default function SignUpScreen() {
       newErrors.confirmPassword = 'Confirmá tu contraseña';
     } else if (form.password !== form.confirmPassword) {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
+    }
+
+    const phoneError = validatePhoneNumber(form.nroTelefono);
+    if (phoneError) {
+      newErrors.nroTelefono = phoneError;
     }
 
     setErrors(newErrors);
@@ -220,14 +244,15 @@ export default function SignUpScreen() {
         {/* Teléfono (Opcional) */}
         <View style={styles.inputWrapper}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.nroTelefono && styles.inputError]}
             placeholder="Teléfono (Opcional)"
             placeholderTextColor="#A0AEC0"
             value={form.nroTelefono}
             onChangeText={(t) => updateField('nroTelefono', t)}
-            keyboardType="numeric"
+            keyboardType="number-pad"
             autoComplete="off"
           />
+          {errors.nroTelefono ? <Text style={styles.errorText}>{errors.nroTelefono}</Text> : null}
         </View>
 
         {/* Foto (Opcional) - web: file input, native: URL/text fallback */}
@@ -319,7 +344,6 @@ export default function SignUpScreen() {
             locale="es-AR"
           />
         )}
-        
 
         {/* Contraseña */}
         <View style={styles.inputWrapper}>
