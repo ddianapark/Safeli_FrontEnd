@@ -1,18 +1,21 @@
+import { AxiosError } from 'axios';
 import apiClient from '../app/apiClient';
 import {
-  LoginRequest,
-  SignUpRequest,
-  AuthResponse,
-  ForgotPasswordRequest,
-  VerifyCodeRequest,
-  ResetPasswordRequest,
-  User,
-  BackendLoginBody,
-  BackendRegisterBody,
-  BackendAuthResponse,
-  BackendMeResponse,
+    AuthResponse,
+    BackendAuthResponse,
+    BackendLoginBody,
+    BackendMeResponse,
+    BackendRegisterBody,
+    BackendUser,
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+    ResetPasswordRequest,
+    SignUpRequest,
+    UpdateProfileRequest,
+    User,
+    VerifyCodeRequest,
 } from '../types/auth_types';
-import { AxiosError } from 'axios';
 
 function parseBackendError(error: unknown): Error {
   if (error instanceof AxiosError) {
@@ -74,17 +77,16 @@ function parseBackendError(error: unknown): Error {
 
 // ─── Helpers de mapeo ─────────────────────────────────────────────────────────
 
-function mapBackendUser(bu: BackendAuthResponse['user']): User {
+function mapBackendUser(bu: BackendUser): User {
   return {
     id: bu.id,
     username: bu.username,
     email: bu.email,
     firstName: bu.nombre,
     lastName: bu.apellido,
-    ...((bu.nroTelefono !== undefined && bu.nroTelefono !== null)
-      ? { nroTelefono: bu.nroTelefono }
-      : {}),
+    ...(bu.nroTelefono !== undefined && bu.nroTelefono !== null ? { nroTelefono: bu.nroTelefono } : {}),
     ...(bu.foto ? { foto: bu.foto } : {}),
+    ...(bu.fechaNacimiento ? { birthDate: bu.fechaNacimiento } : {}),
   } as User;
 }
 
@@ -96,10 +98,16 @@ function mapBackendAuthResponse(raw: BackendAuthResponse): AuthResponse {
   };
 }
 
+async function normalizeUserResponse(response: any): Promise<User> {
+  const payload = response?.data?.user ?? response?.data;
+  if (payload && typeof payload === 'object' && ('id' in payload || 'username' in payload)) {
+    return mapBackendUser(payload as BackendUser);
+  }
+  throw new Error('No se pudo interpretar la respuesta del servidor.');
+}
+
 export const authService = {
-
   async login(data: LoginRequest): Promise<AuthResponse> {
-
     try {
       const body: BackendLoginBody = {
         username: data.username,
@@ -113,14 +121,13 @@ export const authService = {
   },
 
   async signUp(data: SignUpRequest): Promise<AuthResponse> {
-
     try {
       let response;
-      
+
       const fotoObj = data.foto as any;
       const isFile = data.foto && typeof data.foto === 'object' && (
-        (typeof File !== 'undefined' && fotoObj instanceof File) || 
-        'uri' in fotoObj || 
+        (typeof File !== 'undefined' && fotoObj instanceof File) ||
+        'uri' in fotoObj ||
         'name' in fotoObj
       );
 
@@ -131,7 +138,7 @@ export const authService = {
         formData.append('email', data.email);
         formData.append('username', data.username);
         formData.append('fechaNacimiento', data.birthDate);
-        formData.append('password', data.password); 
+        formData.append('password', data.password);
         if (data.nroTelefono !== undefined && data.nroTelefono !== null) {
           formData.append('nroTelefono', String(data.nroTelefono));
         }
@@ -144,8 +151,6 @@ export const authService = {
           formData.append('foto', blob, 'photo.jpg');
         }
 
-        console.log('Sending signup as FormData', { username: data.username, email: data.email, hasFile: true });
-        
         response = await apiClient.post<BackendAuthResponse>('/auth/register', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -158,7 +163,7 @@ export const authService = {
           email: data.email,
           username: data.username,
           fechaNacimiento: data.birthDate,
-          contraseña: data.password, 
+          contraseña: data.password,
           nroTelefono: data.nroTelefono || null,
           foto: typeof data.foto === 'string' ? data.foto : '-1',
         };
@@ -182,6 +187,73 @@ export const authService = {
     try {
       const response = await apiClient.get<BackendMeResponse>('/auth/me');
       return mapBackendUser(response.data);
+    } catch (error) {
+      throw parseBackendError(error);
+    }
+  },
+
+  async updateProfile(data: UpdateProfileRequest): Promise<User> {
+    try {
+      const payload: Record<string, any> = {};
+
+      if (data.firstName !== undefined) payload.nombre = data.firstName;
+      if (data.lastName !== undefined) payload.apellido = data.lastName;
+      if (data.email !== undefined) payload.email = data.email;
+      if (data.username !== undefined) payload.username = data.username;
+      if (data.birthDate !== undefined) payload.fechaNacimiento = data.birthDate;
+      if (data.nroTelefono !== undefined) payload.nroTelefono = data.nroTelefono;
+      if (data.foto !== undefined) payload.foto = typeof data.foto === 'string' ? data.foto : '-1';
+
+      const candidates = [
+        { method: 'patch' as const, path: '/auth/profile', body: payload },
+        { method: 'patch' as const, path: '/auth/update-profile', body: payload },
+        { method: 'patch' as const, path: '/auth/me', body: payload },
+        { method: 'put' as const, path: '/auth/profile', body: payload },
+        { method: 'put' as const, path: '/auth/me', body: payload },
+      ];
+
+      let lastError: unknown;
+      for (const candidate of candidates) {
+        try {
+          const response = await (apiClient as any)[candidate.method](candidate.path, candidate.body);
+          return await normalizeUserResponse(response);
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw parseBackendError(lastError ?? new Error('No se pudo actualizar el perfil.'));
+    } catch (error) {
+      throw parseBackendError(error);
+    }
+  },
+
+  async changePassword(data: ChangePasswordRequest): Promise<void> {
+    try {
+      const payload = {
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+        confirmPassword: data.confirmPassword,
+      };
+
+      const candidates = [
+        { method: 'post' as const, path: '/auth/change-password', body: payload },
+        { method: 'post' as const, path: '/auth/password', body: payload },
+        { method: 'post' as const, path: '/auth/update-password', body: payload },
+        { method: 'put' as const, path: '/auth/password', body: payload },
+      ];
+
+      let lastError: unknown;
+      for (const candidate of candidates) {
+        try {
+          await (apiClient as any)[candidate.method](candidate.path, candidate.body);
+          return;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      throw parseBackendError(lastError ?? new Error('No se pudo cambiar la contraseña.'));
     } catch (error) {
       throw parseBackendError(error);
     }

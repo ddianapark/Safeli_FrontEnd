@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Platform,
   ScrollView,
@@ -13,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
+import { Path, Svg } from 'react-native-svg';
 import { useAuth } from '../context/authContext';
 
 interface FormFields {
@@ -132,6 +132,7 @@ export default function SignUpScreen() {
     setIsLoading(true);
     try {
       const parsedTelefono = form.nroTelefono.trim() ? parseInt(form.nroTelefono.trim(), 10) : undefined;
+      const username = form.username.trim();
 
       console.log('SignUp submit', { username: form.username, email: form.email, foto: !!form.foto });
 
@@ -141,16 +142,19 @@ export default function SignUpScreen() {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         email: form.email.trim().toLowerCase(),
-        username: form.username.trim(),
+        username,
         birthDate: form.birthDate!.toISOString().split('T')[0], // YYYY-MM-DD
         password: form.password,
         nroTelefono: parsedTelefono,
         foto: fotoValue,
       });
+
+      const successMessage = `Tu cuenta se creó correctamente. Ya podés iniciar sesión con tu nombre de usuario "${username}".`;
+      router.replace({ pathname: '/', params: { successMessage } });
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : 'Ocurrió un error. Intentá de nuevo.';
-      Alert.alert('Error al registrarse', message);
+      // Alert.alert('Error al registrarse', message);
     } finally {
       setIsLoading(false);
     }
@@ -365,15 +369,34 @@ export default function SignUpScreen() {
               style={styles.eyeButton}
               accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              {/* <FontAwesome6
-                name={showPassword ? 'eye' : 'eye-slash'}
-                iconStyle="solid"
-                size={18}
-                color="#4A5568"
-              /> */}
-              <Text style={styles.eyeText}>
-                {showPassword ? '🙈' : '👁️'}
-              </Text>
+              {showPassword ? (
+                <Svg width={20} height={20} viewBox="0 0 24 24">
+                  <Path
+                    d="M0 0h24v24H0z"
+                    fill="none"
+                  />
+                  <Path
+                    d="M12 9a3 3 0 0 0-3 3a3 3 0 0 0 3 3a3 3 0 0 0 3-3a3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5a5 5 0 0 1 5-5a5 5 0 0 1 5 5a5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"
+                    fill="#1f2b99"
+                  />
+                </Svg>
+              ) : (
+                <Svg width={20} height={20} viewBox="0 0 16 16">
+                  <Path d="M0 0h16v16H0z" fill="none" />
+                  <Path
+                    d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"
+                    fill="#1f2b99"
+                  />
+                  <Path
+                    d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"
+                    fill="#1f2b99"
+                  />
+                  <Path
+                    d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"
+                    fill="#1f2b99"
+                  />
+                </Svg>
+              )}
             </TouchableOpacity>
           </View>
           {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -399,15 +422,34 @@ export default function SignUpScreen() {
               style={styles.eyeButton}
               accessibilityLabel={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              {/* <FontAwesome6
-                name={showConfirmPassword ? 'eye' : 'eye-slash'}
-                iconStyle="solid"
-                size={18}
-                color="#4A5568"
-              /> */}
-              <Text style={styles.eyeText}>
-                {showConfirmPassword ? '🙈' : '👁️'}
-              </Text>
+              {showConfirmPassword ? (
+                <Svg width={20} height={20} viewBox="0 0 24 24">
+                  <Path
+                    d="M0 0h24v24H0z"
+                    fill="none"
+                  />
+                  <Path
+                    d="M12 9a3 3 0 0 0-3 3a3 3 0 0 0 3 3a3 3 0 0 0 3-3a3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5a5 5 0 0 1 5-5a5 5 0 0 1 5 5a5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"
+                    fill="#1f2b99"
+                  />
+                </Svg>
+              ) : (
+                <Svg width={20} height={20} viewBox="0 0 16 16">
+                  <Path d="M0 0h16v16H0z" fill="none" />
+                  <Path
+                    d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"
+                    fill="#1f2b99"
+                  />
+                  <Path
+                    d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"
+                    fill="#1f2b99"
+                  />
+                  <Path
+                    d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"
+                    fill="#1f2b99"
+                  />
+                </Svg>
+              )}
             </TouchableOpacity>
           </View>
           {errors.confirmPassword ? (

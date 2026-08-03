@@ -16,6 +16,22 @@ export interface SignUpRequest {
   foto?: string | File | { uri: string };
 }
 
+export interface UpdateProfileRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  username?: string;
+  birthDate?: string;
+  nroTelefono?: number | null;
+  foto?: string | File | { uri: string };
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface ForgotPasswordRequest {
   email: string;
 }
@@ -44,6 +60,7 @@ export interface User {
   lastName: string;
   nroTelefono?: number | null;
   foto?: string;
+  birthDate?: string;
 }
 
 export interface AuthResponse {
@@ -66,6 +83,8 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   map: (data: MapRequest) => Promise<void>;
   refreshUser: () => Promise<void>;
+  updateProfile: (data: UpdateProfileRequest) => Promise<User>;
+  changePassword: (data: ChangePasswordRequest) => Promise<void>;
   token: string | null;
 }
 

@@ -1,28 +1,42 @@
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Alert,
   Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { Path, Svg } from 'react-native-svg';
 import { useAuth } from '../context/authContext';
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const params = useLocalSearchParams<{ successMessage?: string | string[] }>();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
+
+  useEffect(() => {
+    const message = Array.isArray(params.successMessage)
+      ? params.successMessage[0]
+      : params.successMessage;
+
+    if (message) {
+      setSuccessMessage(message);
+    } else {
+      setSuccessMessage(null);
+    }
+  }, [params.successMessage]);
 
   const validate = (): boolean => {
     const newErrors: { username?: string; password?: string } = {};
@@ -64,6 +78,12 @@ export default function LoginScreen() {
 
       {/* Body */}
       <View style={styles.body}>
+        {successMessage ? (
+          <View style={styles.successBanner}>
+            <Text style={styles.successBannerText}>{successMessage}</Text>
+          </View>
+        ) : null}
+
         <Text style={styles.title}>¡Bienvenido/a!</Text>
 
         {/* Username */}
@@ -103,14 +123,34 @@ export default function LoginScreen() {
               style={styles.eyeButton}
               accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             >
-              {/* <FontAwesome6
-                name={showPassword ? 'eye' : 'eye-slash'}
-                size={18}
-                color="#4A5568"
-              /> */}
-              <Text style={styles.eyeText}>
-                {showPassword ? '🙈' : '👁️'}
-              </Text>
+              {showPassword ? (
+                <Svg width={20} height={20} viewBox="0 0 24 24">
+                  <Path
+                    d="M0 0h24v24H0z"
+                    fill="none"
+                  />
+                  <Path
+                    d="M12 9a3 3 0 0 0-3 3a3 3 0 0 0 3 3a3 3 0 0 0 3-3a3 3 0 0 0-3-3m0 8a5 5 0 0 1-5-5a5 5 0 0 1 5-5a5 5 0 0 1 5 5a5 5 0 0 1-5 5m0-12.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5"
+                    fill="#1f2b99"
+                  />
+                </Svg>
+              ) : (
+                <Svg width={20} height={20} viewBox="0 0 16 16">
+                  <Path d="M0 0h16v16H0z" fill="none" />
+                  <Path
+                    d="M8 11c-1.65 0-3-1.35-3-3s1.35-3 3-3s3 1.35 3 3s-1.35 3-3 3m0-5c-1.1 0-2 .9-2 2s.9 2 2 2s2-.9 2-2s-.9-2-2-2"
+                    fill="#1f2b99"
+                  />
+                  <Path
+                    d="M8 13c-3.19 0-5.99-1.94-6.97-4.84a.44.44 0 0 1 0-.32C2.01 4.95 4.82 3 8 3s5.99 1.94 6.97 4.84c.04.1.04.22 0 .32C13.99 11.05 11.18 13 8 13M2.03 8c.89 2.4 3.27 4 5.97 4s5.07-1.6 5.97-4C13.08 5.6 10.7 4 8 4S2.93 5.6 2.03 8"
+                    fill="#1f2b99"
+                  />
+                  <Path
+                    d="M14 14.5a.47.47 0 0 1-.35-.15l-12-12c-.2-.2-.2-.51 0-.71s.51-.2.71 0l11.99 12.01c.2.2.2.51 0 .71c-.1.1-.23.15-.35.15Z"
+                    fill="#1f2b99"
+                  />
+                </Svg>
+              )}
             </TouchableOpacity>
           </View>
           {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -315,5 +355,21 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: SAFELI_BLUE,
     height: 12,
+  },
+  successBanner: {
+    backgroundColor: '#E8F8EE',
+    borderColor: '#2F855A',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  successBannerText: {
+    color: '#2F855A',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
