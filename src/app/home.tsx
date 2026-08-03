@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Platform, ScrollView, Keyboard } from 'react-native';
 import * as Location from 'expo-location';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Keyboard, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import MapRoute from '../components/MapRoute';
 // 1. Cambiamos getRoute por getGoogleRoute
@@ -162,7 +162,11 @@ export default function HomeScreen() {
           onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
         />
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchButtonText}>Buscar</Text>}
+          {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchButtonText}><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="1 0 20 20">
+	<path d="M0 0h24v24H0z" fill="none" />
+	<path fill="#fff" d="m19.6 21l-6.3-6.3q-.75.6-1.725.95T9.5 16q-2.725 0-4.612-1.888T3 9.5t1.888-4.612T9.5 3t4.613 1.888T16 9.5q0 1.1-.35 2.075T14.7 13.3l6.3 6.3zM9.5 14q1.875 0 3.188-1.312T14 9.5t-1.312-3.187T9.5 5T6.313 6.313T5 9.5t1.313 3.188T9.5 14" />
+</svg>
+</Text>}
         </TouchableOpacity>
       </View>
 
@@ -235,7 +239,7 @@ export default function HomeScreen() {
               <View style={styles.protoRight}>
                 <Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>
                 {activeRouteType === 'google' && (
-                  <TouchableOpacity style={styles.protoStartButton}>
+                  <TouchableOpacity style={styles.protoStartButton2}>
                     <Text style={styles.protoStartText}>Iniciar</Text>
                   </TouchableOpacity>
                 )}
@@ -258,7 +262,7 @@ const styles = StyleSheet.create({
   searchBar: {
     position: 'absolute',
     top: SEARCH_TOP,
-    left: 16,
+    left: 50,
     right: 16,
     zIndex: 200,
     flexDirection: 'row',
@@ -284,6 +288,31 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   searchButtonText: { color: '#fff', fontWeight: '700' },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 300,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 248, 255, 0.8)',
+  },
+  loadingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#1A3FA8',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   suggestionsContainer: {
     position: 'absolute',
     top: SUGGESTIONS_TOP,
@@ -292,7 +321,6 @@ const styles = StyleSheet.create({
     zIndex: 199,
     backgroundColor: '#fff',
     borderRadius: 12,
-    maxHeight: 240,
     shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowOffset: { width: 0, height: 4 },
@@ -347,7 +375,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   protoStarsMuted: {
-    color: '#A0A0A0',
+    color: 'rgb(255, 122, 0)',
     fontSize: 14,
   },
   protoRight: {
@@ -362,6 +390,12 @@ const styles = StyleSheet.create({
   },
   protoStartButton: {
     backgroundColor: '#1D2DA4',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  protoStartButton2: {
+    backgroundColor: 'rgb(255, 122, 0)',
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
