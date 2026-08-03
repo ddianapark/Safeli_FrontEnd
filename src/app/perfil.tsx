@@ -6,23 +6,24 @@ import { Ionicons } from '@expo/vector-icons';
 const SAFELI_BLUE = '#1F2B99';
 const INPUT_BG = '#F0F7FF'; 
 
-export default function ProfileScreen(
-    { Username, Email, PhoneNumber, Bio, Pfp }:
-    { Username?: string; Email?: string; PhoneNumber?: string; Bio?: string; Pfp?: string }
-) {
-  const { logout } = useAuth();
+export default function ProfileScreen() {
+  // Obtenemos los datos del usuario autenticado directamente del contexto
+  const { user, logout } = useAuth();
 
   const handlePlaceholderPress = (nombreBoton: string) => {
     const mensaje = `La sección de "${nombreBoton}" estará disponible próximamente.`;
 
     if (Platform.OS === 'web') {
-        // Fallback para navegadores web
-        alert(`Módulo en Desarrollo\n\n${mensaje}`);
+      alert(`Módulo en Desarrollo\n\n${mensaje}`);
     } else {
-        // Alerta nativa para iOS y Android
-        Alert.alert("Módulo en Desarrollo", mensaje);
+      Alert.alert("Módulo en Desarrollo", mensaje);
     }
-    };
+  };
+
+  // Validamos si la foto guardada es una URL válida
+  const fotoPerfil = user?.foto && user.foto !== '-1' 
+    ? { uri: user.foto } 
+    : require('../../assets/images/default.jpg');
 
   return (
     <ScrollView 
@@ -44,30 +45,43 @@ export default function ProfileScreen(
         <Ionicons name="settings-outline" size={32} color={SAFELI_BLUE} />
       </TouchableOpacity>
 
+      {/* FOTO DE PERFIL */}
       <View style={styles.avatarContainer}>
         <View style={styles.avatarCircle}>
-          <Image source={Pfp ? { uri: Pfp } : require('../../assets/images/default.jpg')} style={styles.avatarCircle} />
+          <Image source={fotoPerfil} style={styles.avatarCircle} />
         </View>
       </View>
 
+      {/* USERNAME / NOMBRE */}
       <View style={styles.usernameRow}>
-        <Text style={styles.usernameText}>{Username}</Text>
+        <Text style={styles.usernameText}>
+          {user?.username || 'Usuario Safeli'}
+        </Text>
         <TouchableOpacity activeOpacity={0.6}>
           <Ionicons name="pencil" size={16} color="#000" style={styles.pencilIcon} />
         </TouchableOpacity>
       </View>
 
+      {/* CAMPOS DE INFORMACIÓN CON VALUE */}
       <View style={styles.fieldsContainer}>
         <View style={styles.inputWrapper}>
-          <TextInput style={styles.input} placeholder={Email || "Agregá tu email"} placeholderTextColor="#7A8B9E" editable={false} />
+          <TextInput 
+            style={styles.input} 
+            value={user?.email || ''} 
+            placeholder="Agregá tu email" 
+            placeholderTextColor="#7A8B9E" 
+            editable={false} 
+          />
         </View>
 
         <View style={styles.inputWrapper}>
-          <TextInput style={styles.input} placeholder={PhoneNumber || "Agregá tu número de teléfono"} placeholderTextColor="#7A8B9E" editable={false} />
-        </View>
-
-        <View style={styles.inputWrapper}>
-          <TextInput style={styles.input} placeholder= {Bio || "Agregá una biografía"} placeholderTextColor="#7A8B9E" editable={false} />
+          <TextInput 
+            style={styles.input} 
+            value={user?.nroTelefono ? String(user.nroTelefono) : ''} 
+            placeholder="Agregá tu número de teléfono" 
+            placeholderTextColor="#7A8B9E" 
+            editable={false} 
+          />
         </View>
       </View>
 
@@ -121,9 +135,9 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   logo: {
-    width: 200,          // Ancho controlado para que no rompa el layout
-    height: 60,          // Alto estandarizado basado en la tipografía original
-    resizeMode: 'contain', // Clave: evita que se pixele o estire feo
+    width: 200,
+    height: 60,
+    resizeMode: 'contain',
   },
   settingsGear: {
     alignSelf: 'flex-start',

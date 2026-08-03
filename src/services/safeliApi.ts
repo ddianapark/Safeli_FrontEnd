@@ -28,10 +28,10 @@ function formatDistance(meters: number): string {
   return `${Math.round(meters)} m`;
 }
 
-export const obtenerCaminoSeguro = async ( origen: Coordenadas, destino: Coordenadas): Promise<RutaSegura> => {
+export const obtenerCaminoSeguro = async (origen: Coordenadas, destino: Coordenadas, token: string): Promise<RutaSegura> => {
   const response = await fetch(`${BASE_URL}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify({ origen, destino }),
   });
 

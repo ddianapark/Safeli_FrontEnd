@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator,
 import * as Location from 'expo-location';
 
 import MapRoute from '../components/MapRoute';
-import { geocodeAddress, getRoute, getPlaceSuggestions, LatLng, RouteResult, PlaceSuggestion } from '../services/googleApi';
-import { useAuth } from '../context/authContext';
+// 1. Cambiamos getRoute por getGoogleRoute
+import { geocodeAddress, getGoogleRoute, getPlaceSuggestions, LatLng, RouteResult, PlaceSuggestion } from '../services/googleApi';
 import { RutaSegura, obtenerCaminoSeguro } from '../services/safeliApi';
+// 2. Importamos el contexto de autenticación para obtener el token JWT
+import { useAuth } from '../context/authContext';
 
 export default function HomeScreen() {
-  const { logout } = useAuth();
+  const { token } = useAuth(); // Token JWT del usuario logueado
 
   const [query, setQuery] = useState('');
   const [userLocation, setUserLocation] = useState<LatLng>({ latitude: -34.6037, longitude: -58.3816 });
@@ -16,7 +18,7 @@ export default function HomeScreen() {
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [searching, setSearching] = useState(false);
 
-  // Estados duales corregidos
+  // Estados duales
   const [safeliRoute, setSafeliRoute] = useState<RutaSegura | null>(null);
   const [googleRoute, setGoogleRoute] = useState<RouteResult | null>(null);
   const [activeRouteType, setActiveRouteType] = useState<'safeli' | 'google'>('safeli');
@@ -65,10 +67,10 @@ export default function HomeScreen() {
   const resolveAndRouteDual = async (geo: LatLng) => {
     setDestination(geo);
     
-    // Ejecutamos ambas solicitudes concurrentemente para no ralentizar la app
+    // Ejecutamos ambas solicitudes concurrentemente con los datos y tokens correctos
     const [googleRes, safeliRes] = await Promise.allSettled([
-      getRoute(userLocation, geo),
-      obtenerCaminoSeguro(userLocation, geo)
+      getGoogleRoute(userLocation, geo),
+      obtenerCaminoSeguro(userLocation, geo, token || '')
     ]);
 
     if (googleRes.status === 'fulfilled' && googleRes.value) {
@@ -136,15 +138,6 @@ export default function HomeScreen() {
     } finally {
       setSearching(false);
     }
-  };
-
-  const limpiarTodo = () => {
-    setDestination(null);
-    setSafeliRoute(null);
-    setGoogleRoute(null);
-    setQuery('');
-    setSuggestions([]);
-    setShowSuggestions(false);
   };
 
   if (loadingLocation) {
@@ -251,13 +244,6 @@ export default function HomeScreen() {
           )}
         </View>
       )}
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Cerrar sesión</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -320,7 +306,6 @@ const styles = StyleSheet.create({
   suggestionText: { flex: 1, fontSize: 13, color: '#1A202C', lineHeight: 18 },
   mapContainer: { flex: 1 },
   
-  // Estilos Prototipo Contenedor Inferior
   protoCardContainer: {
     position: 'absolute',
     bottom: 72,
@@ -386,17 +371,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
-
-  footer: {
-    height: 56,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 24,
-  },
-  logoutButton: { marginLeft: 12 },
-  logoutText: { color: '#1D2DA4', fontWeight: '700' },
 });

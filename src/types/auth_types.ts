@@ -65,9 +65,8 @@ export interface AuthContextType {
   signUp: (data: SignUpRequest) => Promise<void>;
   logout: () => Promise<void>;
   map: (data: MapRequest) => Promise<void>;
-  // Revalida la sesión y actualiza los datos del usuario desde el backend.
-  // Útil para reflejar cambios de perfil o luego de un largo período inactivo.
   refreshUser: () => Promise<void>;
+  token: string | null;
 }
 
 export interface BackendLoginBody {
