@@ -39,11 +39,11 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (user) {
       setProfileForm({
-        firstName: user.firstName ?? '',
-        lastName: user.lastName ?? '',
+        firstName: user.firstName ?? (user as any).nombre ?? '',
+        lastName: user.lastName ?? (user as any).apellido ?? '',
         username: user.username ?? '',
         email: user.email ?? '',
-        birthDate: user.birthDate ?? '',
+        birthDate: user.birthDate ?? (user as any).fechaNacimiento ?? '',
         nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
       });
     }
@@ -308,29 +308,42 @@ export default function ProfileScreen() {
             ) : (
               <>
                 <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Nombre</Text>
-                  <Text style={styles.infoValue}>{user?.firstName || 'Sin completar'}</Text>
-                </View>
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Apellido</Text>
-                  <Text style={styles.infoValue}>{user?.lastName || 'Sin completar'}</Text>
-                </View>
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Nombre de usuario</Text>
-                  <Text style={styles.infoValue}>{user?.username || 'Sin completar'}</Text>
-                </View>
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Email</Text>
-                  <Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text>
-                </View>
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
-                  <Text style={styles.infoValue}>{user?.birthDate || 'Sin completar'}</Text>
-                </View>
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Teléfono</Text>
-                  <Text style={styles.infoValue}>{user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}</Text>
-                </View>
+                <Text style={styles.infoLabel}>Nombre</Text>
+                <Text style={styles.infoValue}>
+                  {user?.firstName || (user as any)?.nombre || 'Sin completar'}
+                </Text>
+              </View>
+
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Apellido</Text>
+                <Text style={styles.infoValue}>
+                  {user?.lastName || (user as any)?.apellido || 'Sin completar'}
+                </Text>
+              </View>
+
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Nombre de usuario</Text>
+                <Text style={styles.infoValue}>{user?.username || 'Sin completar'}</Text>
+              </View>
+
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Email</Text>
+                <Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text>
+              </View>
+
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
+                <Text style={styles.infoValue}>
+                  {user?.birthDate || (user as any)?.fechaNacimiento || 'Sin completar'}
+                </Text>
+              </View>
+
+              <View style={styles.infoCard}>
+                <Text style={styles.infoLabel}>Teléfono</Text>
+                <Text style={styles.infoValue}>
+                  {user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}
+                </Text>
+              </View>
               </>
             )}
           </View>
