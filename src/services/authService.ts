@@ -77,16 +77,16 @@ function parseBackendError(error: unknown): Error {
 
 // ─── Helpers de mapeo ─────────────────────────────────────────────────────────
 
-function mapBackendUser(bu: BackendUser): User {
+function mapBackendUser(bu: any): User {
   return {
     id: bu.id,
-    username: bu.username,
-    email: bu.email,
-    firstName: bu.nombre,
-    lastName: bu.apellido,
-    ...(bu.nroTelefono !== undefined && bu.nroTelefono !== null ? { nroTelefono: bu.nroTelefono } : {}),
-    ...(bu.foto ? { foto: bu.foto } : {}),
-    ...(bu.fechaNacimiento ? { birthDate: bu.fechaNacimiento } : {}),
+    username: bu.username ?? '',
+    email: bu.email ?? '',
+    firstName: bu.firstName ?? bu.nombre ?? '',
+    lastName: bu.lastName ?? bu.apellido ?? '',
+    nroTelefono: bu.nroTelefono ?? bu.nro_telefono ?? undefined,
+    foto: bu.foto ?? undefined,
+    birthDate: bu.birthDate ?? bu.fechaNacimiento ?? bu.fecha_nacimiento ?? undefined,
   } as User;
 }
 
@@ -192,19 +192,27 @@ export const authService = {
     }
   },
 
-  async updateProfile(data: UpdateProfileRequest): Promise<User> {
+ async updateProfile(data: UpdateProfileRequest | FormData): Promise<User> {
     try {
-      const payload: Record<string, any> = {};
+      let response;
 
-      if (data.firstName !== undefined) payload.firstName = data.firstName;
-      if (data.lastName !== undefined) payload.lastName = data.lastName;
-      if (data.email !== undefined) payload.email = data.email;
-      if (data.username !== undefined) payload.username = data.username;
-      if (data.birthDate !== undefined) payload.birthDate = data.birthDate;
-      if (data.nroTelefono !== undefined) payload.nroTelefono = data.nroTelefono;
-      if (data.foto !== undefined) payload.foto = typeof data.foto === 'string' ? data.foto : '-1';
+      if (data instanceof FormData) {
+        // Axios detecta el FormData y genera las cabeceras correctamente manteniendo el Token Bearer
+        response = await apiClient.patch('/auth/perfil', data);
+      } else {
+        const payload: Record<string, any> = {};
 
-      const response = await apiClient.put('/auth/perfil', payload);
+        if (data.firstName !== undefined) payload.firstName = data.firstName;
+        if (data.lastName !== undefined) payload.lastName = data.lastName;
+        if (data.email !== undefined) payload.email = data.email;
+        if (data.username !== undefined) payload.username = data.username;
+        if (data.birthDate !== undefined) payload.birthDate = data.birthDate;
+        if (data.nroTelefono !== undefined) payload.nroTelefono = data.nroTelefono;
+        if (data.foto !== undefined) payload.foto = data.foto; 
+
+        response = await apiClient.patch('/auth/perfil', payload);
+      }
+
       return mapBackendUser(response.data);
     } catch (error) {
       throw parseBackendError(error);

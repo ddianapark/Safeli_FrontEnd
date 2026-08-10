@@ -1,9 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, LayoutAnimation, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  LayoutAnimation,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  UIManager,
+  View,
+} from 'react-native';
 import { useAuth } from '../context/authContext';
-import { UpdateProfileRequest } from '../types/auth_types';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -13,12 +25,15 @@ const SAFELI_BLUE = '#1F2B99';
 const INPUT_BG = '#F0F7FF';
 
 export default function ProfileScreen() {
-  const { user, logout, updateProfile, changePassword } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isInfoExpanded, setIsInfoExpanded] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Estado para la imagen local seleccionada por el usuario
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   const [profileForm, setProfileForm] = useState({
     firstName: '',
     lastName: '',
@@ -28,13 +43,6 @@ export default function ProfileScreen() {
     nroTelefono: '',
   });
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-  const [ownerConfirmed, setOwnerConfirmed] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -49,16 +57,33 @@ export default function ProfileScreen() {
     }
   }, [user]);
 
+  // Imagen computada: muestra la seleccionada localmente, la de la BD o la por defecto
   const fotoPerfil = useMemo(() => {
+    if (selectedImage) {
+      return { uri: selectedImage };
+    }
     if (user?.foto && user.foto !== '-1') {
       return { uri: user.foto };
     }
     return require('../../assets/images/default.jpg');
-  }, [user?.foto]);
+  }, [selectedImage, user?.foto]);
+
+  // Función para abrir la galería / archivos
+  const seleccionarFoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setSelectedImage(result.assets[0].uri);
+    }
+  };
 
   const handlePlaceholderPress = (nombreBoton: string) => {
     const mensaje = `La sección de "${nombreBoton}" estará disponible próximamente.`;
-
     if (Platform.OS === 'web') {
       alert(`Módulo en Desarrollo\n\n${mensaje}`);
     } else {
@@ -91,65 +116,61 @@ export default function ProfileScreen() {
     setIsSavingProfile(true);
 
     try {
-      const payload: UpdateProfileRequest = {
-        firstName: profileForm.firstName.trim(),
-        lastName: profileForm.lastName.trim(),
-        username: profileForm.username.trim(),
-        email: profileForm.email.trim().toLowerCase(),
-        birthDate: profileForm.birthDate.trim() || undefined,
-        nroTelefono: profileForm.nroTelefono.trim() ? Number(profileForm.nroTelefono.trim()) : null,
-      };
+      const formData = new FormData();
+      formData.append('firstName', profileForm.firstName.trim());
+      formData.append('lastName', profileForm.lastName.trim());
+      formData.append('username', profileForm.username.trim());
+      formData.append('email', profileForm.email.trim().toLowerCase());
 
-      await updateProfile(payload);
+      if (profileForm.birthDate.trim()) {
+        formData.append('birthDate', profileForm.birthDate.trim());
+      }
+      if (profileForm.nroTelefono.trim()) {
+        formData.append('nroTelefono', profileForm.nroTelefono.trim());
+      }
+
+      // 💻 PROCESAMIENTO DE IMAGEN
+      if (selectedImage && !selectedImage.startsWith('http')) {
+        if (Platform.OS === 'web') {
+          // Web (PC): Obtener Blob desde el URI de la vista previa
+          const res = await fetch(selectedImage);
+          const blob = await res.blob();
+          formData.append('foto', blob, 'perfil.jpg');
+        } else {
+          // Móvil
+          const fileName = selectedImage.split('/').pop() || 'perfil.jpg';
+          const match = /\.(\w+)$/.exec(fileName);
+          const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+          formData.append('foto', {
+            uri: selectedImage,
+            name: fileName,
+            type: type,
+          } as any);
+        }
+      }
+
+      // Envío al servidor
+      await updateProfile(formData as any);
+
+      // Limpiamos el estado temporal de la imagen guardada
+      setSelectedImage(null);
       setIsEditing(false);
-      Alert.alert('Perfil actualizado', 'Tu información se guardó correctamente.');
+
+      if (Platform.OS === 'web') {
+        alert('¡Foto y perfil guardados correctamente!');
+      } else {
+        Alert.alert('¡Éxito!', '¡Foto y perfil guardados correctamente!');
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo guardar el perfil.';
-      Alert.alert('No se pudo actualizar', message);
+      console.error('Error al guardar perfil:', error);
+      if (Platform.OS === 'web') {
+        alert('No se pudo actualizar el perfil ni guardar la imagen.');
+      } else {
+        Alert.alert('Error', 'No se pudo actualizar el perfil.');
+      }
     } finally {
       setIsSavingProfile(false);
-    }
-  };
-
-  const validatePassword = () => {
-    const nextErrors: Record<string, string> = {};
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-
-    if (!passwordForm.currentPassword) nextErrors.currentPassword = 'Ingresá tu contraseña actual';
-    if (!passwordForm.newPassword) {
-      nextErrors.newPassword = 'Ingresá una nueva contraseña';
-    } else if (!passwordRegex.test(passwordForm.newPassword)) {
-      nextErrors.newPassword = 'Mínimo 8 caracteres, una mayúscula, una minúscula y un número';
-    }
-    if (!passwordForm.confirmPassword) {
-      nextErrors.confirmPassword = 'Confirmá la nueva contraseña';
-    } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      nextErrors.confirmPassword = 'Las contraseñas nuevas no coinciden';
-    }
-    if (!ownerConfirmed) nextErrors.ownerConfirmed = 'Confirmá que sos el titular de la cuenta';
-
-    setPasswordErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
-
-  const handleChangePassword = async () => {
-    if (!validatePassword()) return;
-    setIsChangingPassword(true);
-
-    try {
-      await changePassword({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
-        confirmPassword: passwordForm.confirmPassword,
-      });
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setOwnerConfirmed(false);
-      Alert.alert('Contraseña actualizada', 'Tu contraseña se cambió correctamente.');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo cambiar la contraseña.';
-      Alert.alert('No se pudo cambiar la contraseña', message);
-    } finally {
-      setIsChangingPassword(false);
     }
   };
 
@@ -173,10 +194,43 @@ export default function ProfileScreen() {
         <Ionicons name="settings-outline" size={32} color={SAFELI_BLUE} />
       </TouchableOpacity>
 
+      {/* 📷 FOTO DE PERFIL */}
       <View style={styles.avatarContainer}>
         <View style={styles.avatarCircle}>
-          <Image source={fotoPerfil} style={styles.avatarCircle} />
+          <Image source={fotoPerfil} style={styles.avatarImage} />
+
+          <TouchableOpacity
+            style={styles.cameraBadge}
+            onPress={seleccionarFoto}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="camera" size={20} color="#fff" />
+          </TouchableOpacity>
         </View>
+
+        {/* 🔘 BOTÓN QUE APARECE SOLO AL ELEGIR UNA NUEVA FOTO */}
+        {selectedImage && (
+          <View style={styles.photoActionsContainer}>
+            <TouchableOpacity
+              style={styles.savePhotoButton}
+              onPress={handleSaveProfile}
+              disabled={isSavingProfile}
+            >
+              <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+              <Text style={styles.savePhotoButtonText}>
+                {isSavingProfile ? 'Guardando foto...' : 'Guardar nueva foto'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelPhotoButton}
+              onPress={() => setSelectedImage(null)}
+              disabled={isSavingProfile}
+            >
+              <Ionicons name="close-circle-outline" size={18} color="#E53E3E" />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       <View style={styles.usernameRow}>
@@ -185,7 +239,7 @@ export default function ProfileScreen() {
         </Text>
       </View>
 
-      {/* Acordeón de información del usuario */}
+      {/* Información del usuario */}
       <View style={styles.accordionContainer}>
         <TouchableOpacity
           style={styles.accordionHeader}
@@ -205,13 +259,14 @@ export default function ProfileScreen() {
               onPress={() => {
                 if (isEditing) {
                   setIsEditing(false);
+                  setSelectedImage(null);
                   if (user) {
                     setProfileForm({
-                      firstName: user.firstName ?? '',
-                      lastName: user.lastName ?? '',
+                      firstName: user.firstName ?? (user as any).nombre ?? '',
+                      lastName: user.lastName ?? (user as any).apellido ?? '',
                       username: user.username ?? '',
                       email: user.email ?? '',
-                      birthDate: user.birthDate ?? '',
+                      birthDate: user.birthDate ?? (user as any).fechaNacimiento ?? '',
                       nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
                     });
                   }
@@ -308,92 +363,63 @@ export default function ProfileScreen() {
             ) : (
               <>
                 <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Nombre</Text>
-                <Text style={styles.infoValue}>
-                  {user?.firstName || (user as any)?.nombre || 'Sin completar'}
-                </Text>
-              </View>
+                  <Text style={styles.infoLabel}>Nombre</Text>
+                  <Text style={styles.infoValue}>
+                    {user?.firstName || (user as any)?.nombre || 'Sin completar'}
+                  </Text>
+                </View>
 
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Apellido</Text>
-                <Text style={styles.infoValue}>
-                  {user?.lastName || (user as any)?.apellido || 'Sin completar'}
-                </Text>
-              </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Apellido</Text>
+                  <Text style={styles.infoValue}>
+                    {user?.lastName || (user as any)?.apellido || 'Sin completar'}
+                  </Text>
+                </View>
 
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Nombre de usuario</Text>
-                <Text style={styles.infoValue}>{user?.username || 'Sin completar'}</Text>
-              </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Nombre de usuario</Text>
+                  <Text style={styles.infoValue}>{user?.username || 'Sin completar'}</Text>
+                </View>
 
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Email</Text>
-                <Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text>
-              </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Email</Text>
+                  <Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text>
+                </View>
 
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
-                <Text style={styles.infoValue}>
-                  {user?.birthDate || (user as any)?.fechaNacimiento || 'Sin completar'}
-                </Text>
-              </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
+                  <Text style={styles.infoValue}>
+                    {user?.birthDate || (user as any)?.fechaNacimiento || 'Sin completar'}
+                  </Text>
+                </View>
 
-              <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>Teléfono</Text>
-                <Text style={styles.infoValue}>
-                  {user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}
-                </Text>
-              </View>
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Teléfono</Text>
+                  <Text style={styles.infoValue}>
+                    {user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}
+                  </Text>
+                </View>
+
+                <View style={styles.infoCard}>
+                  <Text style={styles.infoLabel}>Contraseña</Text>
+                  <Text style={styles.infoValue}>••••••••</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.changePasswordOption}
+                  onPress={() => router.push('/change-password')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.changePasswordLeft}>
+                    <Ionicons name="key-outline" size={18} color={SAFELI_BLUE} />
+                    <Text style={styles.changePasswordText}>Cambiar contraseña</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={SAFELI_BLUE} />
+                </TouchableOpacity>
               </>
             )}
           </View>
         )}
-      </View>
-
-      <View style={styles.passwordCard}>
-        <Text style={styles.sectionTitle}>Cambiar contraseña</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña actual"
-          secureTextEntry
-          value={passwordForm.currentPassword}
-          onChangeText={(text) => setPasswordForm((prev) => ({ ...prev, currentPassword: text }))}
-        />
-        {passwordErrors.currentPassword ? <Text style={styles.errorText}>{passwordErrors.currentPassword}</Text> : null}
-
-        <TextInput
-          style={styles.input}
-          placeholder="Nueva contraseña"
-          secureTextEntry
-          value={passwordForm.newPassword}
-          onChangeText={(text) => setPasswordForm((prev) => ({ ...prev, newPassword: text }))}
-        />
-        {passwordErrors.newPassword ? <Text style={styles.errorText}>{passwordErrors.newPassword}</Text> : null}
-
-        <TextInput
-          style={styles.input}
-          placeholder="Confirmar nueva contraseña"
-          secureTextEntry
-          value={passwordForm.confirmPassword}
-          onChangeText={(text) => setPasswordForm((prev) => ({ ...prev, confirmPassword: text }))}
-        />
-        {passwordErrors.confirmPassword ? <Text style={styles.errorText}>{passwordErrors.confirmPassword}</Text> : null}
-
-        <TouchableOpacity style={styles.ownerRow} onPress={() => setOwnerConfirmed((prev) => !prev)} activeOpacity={0.8}>
-          <View style={[styles.checkbox, ownerConfirmed && styles.checkboxChecked]}>
-            {ownerConfirmed ? <Text style={styles.checkmark}>✓</Text> : null}
-          </View>
-          <Text style={styles.ownerText}>Confirmo que soy el titular de esta cuenta.</Text>
-        </TouchableOpacity>
-        {passwordErrors.ownerConfirmed ? <Text style={styles.errorText}>{passwordErrors.ownerConfirmed}</Text> : null}
-
-        <TouchableOpacity style={styles.saveButton} onPress={handleChangePassword} disabled={isChangingPassword}>
-          {isChangingPassword ? <Text style={styles.saveButtonText}>Procesando...</Text> : <Text style={styles.saveButtonText}>Guardar nueva contraseña</Text>}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => router.push('/forgot-password')} style={styles.forgotPasswordLink}>
-          <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
-        </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>Ajustes</Text>
@@ -423,7 +449,55 @@ const styles = StyleSheet.create({
   logo: { width: 200, height: 60, resizeMode: 'contain' },
   settingsGear: { alignSelf: 'flex-start', marginLeft: 28, marginTop: 5, marginBottom: 10 },
   avatarContainer: { alignItems: 'center', marginVertical: 15 },
-  avatarCircle: { width: 170, height: 170, borderRadius: 85, borderWidth: 2, borderColor: '#1A3FA8', backgroundColor: '#E0E6ED', justifyContent: 'center', alignItems: 'center' },
+  avatarCircle: { 
+    width: 170, 
+    height: 170, 
+    borderRadius: 85, 
+    borderWidth: 2, 
+    borderColor: '#1A3FA8', 
+    backgroundColor: '#E0E6ED', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative'  
+  },
+  avatarImage: { width: 166, height: 166, borderRadius: 83 },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    backgroundColor: '#1A3FA8',
+    padding: 10,
+    borderRadius: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  photoActionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  savePhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: SAFELI_BLUE,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  savePhotoButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  cancelPhotoButton: {
+    backgroundColor: '#FEE2E2',
+    padding: 10,
+    borderRadius: 20,
+  },
   usernameRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 20 },
   usernameText: { fontSize: 18, fontWeight: '600', color: '#333' },
   pencilIcon: { marginTop: 2 },
@@ -441,14 +515,20 @@ const styles = StyleSheet.create({
   errorText: { color: '#E53E3E', fontSize: 12, marginLeft: 4 },
   saveButton: { backgroundColor: SAFELI_BLUE, borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   saveButtonText: { color: '#fff', fontWeight: '700' },
-  passwordCard: { marginHorizontal: 24, marginBottom: 24, backgroundColor: '#F8FBFF', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E4EEF9' },
-  ownerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 4 },
-  checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 2, borderColor: SAFELI_BLUE, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
-  checkboxChecked: { backgroundColor: SAFELI_BLUE },
-  checkmark: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  ownerText: { fontSize: 13, color: '#374151' },
-  forgotPasswordLink: { marginTop: 8, alignSelf: 'center' },
-  forgotPasswordText: { color: SAFELI_BLUE, fontWeight: '700', textDecorationLine: 'underline' },
+  changePasswordOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: INPUT_BG,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#DCE9F7',
+    marginTop: 4,
+  },
+  changePasswordLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  changePasswordText: { fontSize: 14, fontWeight: '700', color: SAFELI_BLUE },
   sectionTitle: { fontSize: 20, fontWeight: '700', color: '#000', textAlign: 'center', marginBottom: 16 },
   buttonsContainer: { paddingHorizontal: 60, gap: 14, alignItems: 'center', marginBottom: 16 },
   pillButton: { width: '100%', maxWidth: 260, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: '#1A3FA8', backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.03, shadowOffset: { width: 0, height: 2 }, elevation: 1 },

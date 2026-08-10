@@ -25,11 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const bootstrapAuth = async () => {
       try {
-        const rememberMe = await tokenStorage.getRememberMe();
         const accessToken = await tokenStorage.getAccessToken();
 
-        if (!rememberMe || !accessToken) {
+        if (!accessToken) {
           await tokenStorage.clearTokens();
+          setUser(null);
           return;
         }
         const freshUser = await authService.getMe();
@@ -102,10 +102,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const updateProfile = useCallback(async (data: UpdateProfileRequest): Promise<User> => {
+const updateProfile = useCallback(async (data: UpdateProfileRequest): Promise<User> => {
     const updatedUser = await authService.updateProfile(data);
-    setUser(updatedUser);
-    await tokenStorage.saveUser(JSON.stringify(updatedUser));
+
+    // Unimos los datos anteriores con los nuevos para NO perder propiedades clave
+    setUser((prevUser) => {
+      const mergedUser = {
+        ...prevUser,
+        ...updatedUser,
+      } as User;
+
+      // Guardamos la versión completa en el almacenamiento local
+      tokenStorage.saveUser(JSON.stringify(mergedUser)).catch(console.error);
+      return mergedUser;
+    });
+
     return updatedUser;
   }, []);
 
