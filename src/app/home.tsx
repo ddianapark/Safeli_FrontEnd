@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import MapRoute from '../components/MapRoute';
-// 1. Cambiamos getRoute por getGoogleRoute
-import { geocodeAddress, getGoogleRoute, getPlaceSuggestions, LatLng, PlaceSuggestion, RouteResult } from '../services/googleApi';
+// 1. Cambiamos getRoute por getRouteORS
+import { geocodeAddress, getRouteORS, getPlaceSuggestions, LatLng, PlaceSuggestion, RouteResult } from '../services/googleApi';
 import { obtenerCaminoSeguro, RutaSegura } from '../services/safeliApi';
 // 2. Importamos el contexto de autenticación para obtener el token JWT
 import { useAuth } from '../context/authContext';
@@ -69,7 +69,7 @@ export default function HomeScreen() {
     
     // Ejecutamos ambas solicitudes concurrentemente con los datos y tokens correctos
     const [googleRes, safeliRes] = await Promise.allSettled([
-      getGoogleRoute(userLocation, geo),
+      getRouteORS(userLocation, geo),
       obtenerCaminoSeguro(userLocation, geo, token || '')
     ]);
 

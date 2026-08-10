@@ -19,36 +19,23 @@ export interface PlaceSuggestion {
   coordinates?: LatLng;
 }
 
-const BACKEND_URL = 'http://localhost:3000'; // Ajustá a la URL de tu servidor Node.js
+const BACKEND_URL = 'http://localhost:3000';
 
-// 1. Obtener la ruta de Google desde tu backend
-export async function getGoogleRoute(
-  origin: LatLng,
-  destination: LatLng
-): Promise<RouteResult | null> {
+export async function getRouteORS(origin: LatLng, destination: LatLng): Promise<RouteResult | null> {
   try {
-    const originStr = `${origin.latitude},${origin.longitude}`;
-    const destStr = `${destination.latitude},${destination.longitude}`;
-
-    const response = await fetch(
-      `${BACKEND_URL}/api/directions?origin=${originStr}&destination=${destStr}`
+    const res = await fetch(
+      BACKEND_URL + `/api/directions?origin=${origin.longitude},${origin.latitude}&destination=${destination.longitude},${destination.latitude}`
     );
-
-    if (!response.ok) return null;
-    const data = await response.json();
-
-    return {
-      polylinePoints: data.polylinePoints || [],
-      distanceText: data.distanceText,
-      durationText: data.durationText,
-    };
+    if (!res.ok) return null;
+    const data: RouteResult = await res.json();
+    if (!data.polylinePoints || data.polylinePoints.length === 0) return null;
+    return data;
   } catch (error) {
-    console.error('Error obteniendo ruta de Google:', error);
+    console.error('Error en getRouteORS:', error);
     return null;
   }
 }
 
-// 2. Geocodificación (Dirección a Coordenadas)
 export async function geocodeAddress(address: string): Promise<LatLng | null> {
   try {
     const response = await fetch(
@@ -62,7 +49,6 @@ export async function geocodeAddress(address: string): Promise<LatLng | null> {
   }
 }
 
-// 3. Autocompletado de direcciones
 // Sugerencias en MOBILE: Google Places Autocomplete API
 async function getSuggestionsGoogle(input: string): Promise<PlaceSuggestion[]> {
   try {

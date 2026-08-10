@@ -204,7 +204,7 @@ export const authService = {
       if (data.nroTelefono !== undefined) payload.nroTelefono = data.nroTelefono;
       if (data.foto !== undefined) payload.foto = typeof data.foto === 'string' ? data.foto : '-1';
 
-      const response = await apiClient.patch('/auth/update-profile', payload);
+      const response = await apiClient.patch('/auth/perfil', payload);
       return await normalizeUserResponse(response);
     } catch (error) {
       throw parseBackendError(error);
