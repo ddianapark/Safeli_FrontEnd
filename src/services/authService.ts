@@ -185,7 +185,7 @@ export const authService = {
 
   async getMe(): Promise<User> {
     try {
-      const response = await apiClient.get<BackendMeResponse>('/auth/me');
+      const response = await apiClient.get<BackendMeResponse>('/auth/perfil');
       return mapBackendUser(response.data);
     } catch (error) {
       throw parseBackendError(error);
@@ -196,16 +196,16 @@ export const authService = {
     try {
       const payload: Record<string, any> = {};
 
-      if (data.firstName !== undefined) payload.nombre = data.firstName;
-      if (data.lastName !== undefined) payload.apellido = data.lastName;
+      if (data.firstName !== undefined) payload.firstName = data.firstName;
+      if (data.lastName !== undefined) payload.lastName = data.lastName;
       if (data.email !== undefined) payload.email = data.email;
       if (data.username !== undefined) payload.username = data.username;
-      if (data.birthDate !== undefined) payload.fechaNacimiento = data.birthDate;
+      if (data.birthDate !== undefined) payload.birthDate = data.birthDate;
       if (data.nroTelefono !== undefined) payload.nroTelefono = data.nroTelefono;
       if (data.foto !== undefined) payload.foto = typeof data.foto === 'string' ? data.foto : '-1';
 
-      const response = await apiClient.patch('/auth/perfil', payload);
-      return await normalizeUserResponse(response);
+      const response = await apiClient.put('/auth/perfil', payload);
+      return mapBackendUser(response.data);
     } catch (error) {
       throw parseBackendError(error);
     }
