@@ -27,6 +27,12 @@ export default function HomeScreen() {
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const renderStars = (rating: number = 5) => {
+    const fullStars = '★'.repeat(rating);
+    const emptyStars = '☆'.repeat(5 - rating);
+    return `${fullStars}${emptyStars}`;
+  };
   
   useEffect(() => {
     (async () => {
@@ -163,10 +169,10 @@ export default function HomeScreen() {
         />
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
           {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchButtonText}><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="1 0 20 20">
-	<path d="M0 0h24v24H0z" fill="none" />
-	<path fill="#fff" d="m19.6 21l-6.3-6.3q-.75.6-1.725.95T9.5 16q-2.725 0-4.612-1.888T3 9.5t1.888-4.612T9.5 3t4.613 1.888T16 9.5q0 1.1-.35 2.075T14.7 13.3l6.3 6.3zM9.5 14q1.875 0 3.188-1.312T14 9.5t-1.312-3.187T9.5 5T6.313 6.313T5 9.5t1.313 3.188T9.5 14" />
-</svg>
-</Text>}
+            <path d="M0 0h24v24H0z" fill="none" />
+            <path fill="#fff" d="m19.6 21l-6.3-6.3q-.75.6-1.725.95T9.5 16q-2.725 0-4.612-1.888T3 9.5t1.888-4.612T9.5 3t4.613 1.888T16 9.5q0 1.1-.35 2.075T14.7 13.3l6.3 6.3zM9.5 14q1.875 0 3.188-1.312T14 9.5t-1.312-3.187T9.5 5T6.313 6.313T5 9.5t1.313 3.188T9.5 14" />
+          </svg>
+          </Text>}
         </TouchableOpacity>
       </View>
 
@@ -205,7 +211,7 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Panel de rutas inspirado en el prototipo */}
+      {/* Panel de rutas */}
       {(safeliRoute || googleRoute) && (
         <View style={styles.protoCardContainer}>
           
@@ -217,7 +223,9 @@ export default function HomeScreen() {
             >
               <View style={styles.protoLeft}>
                 <Text style={styles.protoTitle}>Camino Safeli</Text>
-                <Text style={styles.protoStars}>★★★★★</Text>
+                <Text style={styles.protoStars}>
+                  {renderStars(safeliRoute.safetyAssessment?.estrellas ?? 5)}
+                </Text>
               </View>
               <View style={styles.protoRight}>
                 <Text style={styles.protoTime}>{safeliRoute.durationText || 'N/D'}</Text>
@@ -238,7 +246,9 @@ export default function HomeScreen() {
             >
               <View style={styles.protoLeft}>
                 <Text style={styles.protoTitle}>Camino Rápido</Text>
-                <Text style={styles.protoStarsMuted}>★★☆☆☆</Text>
+                <Text style={styles.protoStarsMuted}>
+                  {renderStars(googleRoute.safetyAssessment?.estrellas ?? 1)}
+                </Text>
               </View>
               <View style={styles.protoRight}>
                 <Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>
@@ -250,6 +260,7 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
           )}
+
         </View>
       )}
     </View>
