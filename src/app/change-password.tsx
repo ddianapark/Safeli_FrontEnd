@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Keyboard,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -26,7 +27,6 @@ export default function ChangePasswordScreen() {
     confirmPassword: '',
   });
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-  const [ownerConfirmed, setOwnerConfirmed] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Estados de visibilidad de contraseñas (Mejora de Seguridad y UX)
@@ -51,16 +51,24 @@ export default function ChangePasswordScreen() {
     } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       nextErrors.confirmPassword = 'Las contraseñas nuevas no coinciden';
     }
-    if (!ownerConfirmed) {
-      nextErrors.ownerConfirmed = 'Confirmá que sos el titular de la cuenta';
-    }
 
     setPasswordErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
   const handleChangePassword = async () => {
-    if (!validatePassword()) return;
+    Keyboard.dismiss(); // Baja el teclado para que el usuario vea los errores si los hay
+
+    if (!validatePassword()) {
+      // Le damos un feedback activo al usuario para que sepa por qué no avanza
+      if (Platform.OS === 'web') {
+        alert('Revisá los errores debajo de los campos antes de guardar.');
+      } else {
+        Alert.alert('Datos incompletos', 'Por favor, verificá los mensajes en rojo y corregí tu contraseña.');
+      }
+      return; 
+    }
+    
     setIsChangingPassword(true);
 
     try {
@@ -81,8 +89,14 @@ export default function ChangePasswordScreen() {
         ]);
       }
     } catch (error) {
+      // Manejamos el caso de "Contraseña actual incorrecta" que devolverá el backend
       const message = error instanceof Error ? error.message : 'No se pudo cambiar la contraseña.';
-      Alert.alert('No se pudo cambiar la contraseña', message);
+      
+      if (Platform.OS === 'web') {
+        alert(`Error\n\n${message}`);
+      } else {
+        Alert.alert('No se pudo cambiar la contraseña', message);
+      }
     } finally {
       setIsChangingPassword(false);
     }
@@ -214,7 +228,6 @@ const styles = StyleSheet.create({
     top: 12,
   },
   errorText: { color: '#E53E3E', fontSize: 12, marginTop: 4, marginLeft: 4 },
-  ownerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 8 },
   checkbox: {
     width: 20,
     height: 20,

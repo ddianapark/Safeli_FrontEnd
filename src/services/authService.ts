@@ -1,20 +1,20 @@
 import { AxiosError } from 'axios';
 import apiClient from '../app/apiClient';
 import {
-    AuthResponse,
-    BackendAuthResponse,
-    BackendLoginBody,
-    BackendMeResponse,
-    BackendRegisterBody,
-    BackendUser,
-    ChangePasswordRequest,
-    ForgotPasswordRequest,
-    LoginRequest,
-    ResetPasswordRequest,
-    SignUpRequest,
-    UpdateProfileRequest,
-    User,
-    VerifyCodeRequest,
+  AuthResponse,
+  BackendAuthResponse,
+  BackendLoginBody,
+  BackendMeResponse,
+  BackendRegisterBody,
+  BackendUser,
+  ChangePasswordRequest,
+  ForgotPasswordRequest,
+  LoginRequest,
+  ResetPasswordRequest,
+  SignUpRequest,
+  UpdateProfileRequest,
+  User,
+  VerifyCodeRequest,
 } from '../types/auth_types';
 
 function parseBackendError(error: unknown): Error {

@@ -185,8 +185,10 @@ export default function HomeScreen() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
                     <path d="M0 0h16v16H0z" fill="none" />
                     <path fill="#1f2b99" fillRule="evenodd" d="M8 1c3 0 5 2 5 5s-3 6-5 9c-2-3-5-6-5-9s2-5 5-5m0 2.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 0 0 0-5" clipRule="evenodd" />
-                </svg></Text>
+                  </svg>
+                </Text>
                 <Text style={styles.suggestionText} numberOfLines={2}>{item.description}</Text>
+
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -217,7 +219,7 @@ export default function HomeScreen() {
             >
               <View style={styles.protoLeft}>
                 <Text style={styles.protoTitle}>Camino Safeli</Text>
-                <Text style={styles.protoStars}>★★★★★</Text>
+                {/* <Text style={styles.protoStars}>★★★★★</Text> PONER EL ESCUDO Y REEMPLAZAR LA ESTRELLA */}
               </View>
               <View style={styles.protoRight}>
                 <Text style={styles.protoTime}>{safeliRoute.durationText || 'N/D'}</Text>
