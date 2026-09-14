@@ -35,6 +35,7 @@ export default function HomeScreen() {
   };
   
   useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -42,14 +43,35 @@ export default function HomeScreen() {
           setLoadingLocation(false);
           return;
         }
+
+        // Posición inicial
         const pos = await Location.getCurrentPositionAsync({});
         setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setLoadingLocation(false);
+
+        // Suscripción al GPS en tiempo real para rastrear mientras avanza
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 2000,
+            distanceInterval: 3,
+          },
+          (loc) => {
+            setUserLocation({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            });
+          }
+        );
       } catch (e) {
         console.warn('Location error', e);
-      } finally {
         setLoadingLocation(false);
       }
     })();
+
+    return () => {
+      subscription?.remove();
+    };
   }, []);
 
   const handleQueryChange = (text: string) => {
