@@ -1,34 +1,137 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
+import { ActivityIndicator, Alert, Keyboard, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View, Modal } from 'react-native';
 import MapRoute from '../components/MapRoute';
-// 1. Cambiamos getRoute por getRouteORS
-import { geocodeAddress, getRouteORS, getPlaceSuggestions, LatLng, PlaceSuggestion, RouteResult } from '../services/googleApi';
-import { obtenerCaminoSeguro, RutaSegura } from '../services/safeliApi';
-// 2. Importamos el contexto de autenticación para obtener el token JWT
 import { useAuth } from '../context/authContext';
+import { geocodeAddress, getPlaceSuggestions, getRouteORS, LatLng, PlaceSuggestion, RouteResult } from '../services/googleApi';
+import { obtenerCaminoSeguro, RutaSegura } from '../services/safeliApi';
+
+const LockRating = ({ score, maxScore = 5, color }: { score: number, maxScore?: number, color: string }) => {
+  return (
+    <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
+      {Array.from({ length: maxScore }).map((_, index) => (
+        <MaterialCommunityIcons
+          key={index}
+          name={index < score ? 'lock' : 'lock-open-outline'} 
+          size={16}
+          color={color}
+        />
+      ))}
+    </View>
+  );
+};
+
+const calcularDistanciaMetros = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3; // Radio de la Tierra en metros
+  const toRad = (valor: number) => (valor * Math.PI) / 180;
+  
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; 
+};
 
 export default function HomeScreen() {
-  const { token } = useAuth(); // Token JWT del usuario logueado
-
+  const { token } = useAuth(); 
   const [query, setQuery] = useState('');
   const [userLocation, setUserLocation] = useState<LatLng>({ latitude: -34.6037, longitude: -58.3816 });
   const [destination, setDestination] = useState<LatLng | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [searching, setSearching] = useState(false);
-
-  // Estados duales
   const [safeliRoute, setSafeliRoute] = useState<RutaSegura | null>(null);
   const [googleRoute, setGoogleRoute] = useState<RouteResult | null>(null);
   const [activeRouteType, setActiveRouteType] = useState<'safeli' | 'google'>('safeli');
-
-  // Sugerencias buscador
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rutaActivaRef = useRef<RutaSegura | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comentario, setComentario] = useState('');
+  const [resumenViaje, setResumenViaje] = useState({ origen: '', destino: '', duracion: '' });
+  const [enViaje, setEnViaje] = useState(false);
   
   useEffect(() => {
+    rutaActivaRef.current = safeliRoute;
+  }, [safeliRoute]);
+
+  const alertarDesvio = () => {
+    Vibration.vibrate([0, 500, 200, 500], false);
+    Alert.alert(
+      "¡Desvío de ruta!",
+      "Te has alejado del camino sugerido. ¿Deseas recalcular la ruta segura desde tu ubicación actual?",
+      [
+        { text: "Ignorar", style: "cancel", onPress: () => Vibration.cancel() },
+        { 
+          text: "Recalcular", 
+          onPress: () => {
+            Vibration.cancel();
+            if (destination) resolveAndRouteDual(destination); // Vuelve a calcular hacia el destino
+          }
+        }
+      ]
+    );
+  };
+
+  const verificarDesvio = (ubicacionActual: LatLng, rutaActiva: RutaSegura) => {
+    const TOLERANCIA_METROS = 50;
+    
+    if (!rutaActiva.geometry || !rutaActiva.geometry.coordinates || rutaActiva.geometry.coordinates.length === 0) {
+        return; 
+    }
+    const coordenadasGeoJSON = rutaActiva.geometry.coordinates;
+    const distanciaMinima = Math.min(
+      ...coordenadasGeoJSON.map((coord: [number, number]) => {
+          const lonRuta = coord[0];
+          const latRuta = coord[1];
+
+          return calcularDistanciaMetros(
+            ubicacionActual.latitude, 
+            ubicacionActual.longitude, 
+            latRuta, 
+            lonRuta
+          );
+      })
+    );
+
+    if (distanciaMinima > TOLERANCIA_METROS) {
+      alertarDesvio();
+    }
+  };
+
+  const finalizarViaje = () => {
+    setEnViaje(false); 
+    
+    setResumenViaje({
+      origen: 'Tu ubicación de origen',
+      destino: query || 'Destino',
+      duracion: safeliRoute?.durationText || 'N/D'
+    });
+    
+    setShowFeedbackModal(true);
+  };
+
+  const cerrarFeedback = () => {
+    setShowFeedbackModal(false);
+    setRating(0);
+    setComentario('');
+  };
+
+  const enviarFeedback = () => {
+    console.log("Feedback enviado:", { rating, comentario, resumenViaje });
+    cerrarFeedback();
+  };
+
+  useEffect(() => {
+    let locationSub: Location.LocationSubscription | null = null;
+
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -36,15 +139,34 @@ export default function HomeScreen() {
           setLoadingLocation(false);
           return;
         }
-        const pos = await Location.getCurrentPositionAsync({});
-        setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        locationSub = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 10,
+          },
+          (location) => {
+            const nuevaPos = { latitude: location.coords.latitude, longitude: location.coords.longitude };
+            setUserLocation(nuevaPos);
+
+            if (rutaActivaRef.current && activeRouteType === 'safeli') {
+              verificarDesvio(nuevaPos, rutaActivaRef.current);
+            }
+          }
+        );
       } catch (e) {
         console.warn('Location error', e);
       } finally {
         setLoadingLocation(false);
       }
     })();
-  }, []);
+
+    // Limpieza
+    return () => {
+      if (locationSub) locationSub.remove();
+    };
+  }, [activeRouteType]); 
+
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
@@ -87,7 +209,6 @@ export default function HomeScreen() {
       setSafeliRoute(null);
     }
 
-    // Por defecto, ponemos el foco inicial en Safeli si existe
     if (safeliRes.status === 'fulfilled' && safeliRes.value) {
       setActiveRouteType('safeli');
     } else {
@@ -205,53 +326,145 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Panel de rutas inspirado en el prototipo */}
+     {/* Panel de rutas inspirado en el prototipo */}
       {(safeliRoute || googleRoute) && (
         <View style={styles.protoCardContainer}>
-          
-          {/* Fila Camino Safeli */}
-          {safeliRoute && (
-            <TouchableOpacity 
-              style={[styles.protoRow, activeRouteType === 'safeli' && styles.protoRowActive]}
-              onPress={() => setActiveRouteType('safeli')}
-            >
-              <View style={styles.protoLeft}>
-                <Text style={styles.protoTitle}>Camino Safeli</Text>
-                <Text style={styles.protoStars}>★★★★★</Text>
+          {enViaje ? (
+            <View style={styles.activeTripContainer}>
+              <View style={styles.activeTripHeader}>
+                <MaterialCommunityIcons name="navigation" size={24} color="#1D2DA4" />
+                <Text style={styles.activeTripTitle}>Navegando hacia tu destino</Text>
               </View>
-              <View style={styles.protoRight}>
-                <Text style={styles.protoTime}>{safeliRoute.durationText || 'N/D'}</Text>
-                {activeRouteType === 'safeli' && (
-                  <TouchableOpacity style={styles.protoStartButton}>
-                    <Text style={styles.protoStartText}>Iniciar</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </TouchableOpacity>
-          )}
+              <TouchableOpacity style={styles.endTripButton} onPress={finalizarViaje}>
+                <Text style={styles.endTripText}>Terminar viaje</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {safeliRoute && (
+                <TouchableOpacity 
+                  style={[styles.protoRow, activeRouteType === 'safeli' && styles.protoRowActive]}
+                  onPress={() => setActiveRouteType('safeli')}
+                >
+                  <View style={styles.protoLeft}>
+                    <Text style={styles.protoTitle}>Camino Safeli</Text>
+                    <LockRating score={5} color="#1D2DA4" />
+                  </View>
+                  <View style={styles.protoRight}>
+                    <Text style={styles.protoTime}>{safeliRoute.durationText || 'N/D'}</Text>
+                    {activeRouteType === 'safeli' && (
+                      <TouchableOpacity style={styles.protoStartButton} onPress={() => setEnViaje(true)}>
+                        <Text style={styles.protoStartText}>Iniciar</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
 
-          {/* Fila Camino Rápido */}
-          {googleRoute && (
-            <TouchableOpacity 
-              style={[styles.protoRow, activeRouteType === 'google' && styles.protoRowActive]}
-              onPress={() => setActiveRouteType('google')}
-            >
-              <View style={styles.protoLeft}>
-                <Text style={styles.protoTitle}>Camino Rápido</Text>
-                <Text style={styles.protoStarsMuted}>★★☆☆☆</Text>
-              </View>
-              <View style={styles.protoRight}>
-                <Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>
-                {activeRouteType === 'google' && (
-                  <TouchableOpacity style={styles.protoStartButton2}>
-                    <Text style={styles.protoStartText}>Iniciar</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </TouchableOpacity>
+              {googleRoute && (
+                <TouchableOpacity 
+                  style={[styles.protoRow, activeRouteType === 'google' && styles.protoRowActive]}
+                  onPress={() => setActiveRouteType('google')}
+                >
+                  <View style={styles.protoLeft}>
+                    <Text style={styles.protoTitle}>Camino Rápido</Text>
+                    <LockRating score={2} color="rgb(255, 122, 0)" />
+                  </View>
+                  <View style={styles.protoRight}>
+                    <Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>
+                    {activeRouteType === 'google' && (
+                      <TouchableOpacity style={styles.protoStartButton2} onPress={() => setEnViaje(true)}>
+                        <Text style={styles.protoStartText}>Iniciar</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
       )}
+
+      {/* MODAL DE FEEDBACK */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showFeedbackModal}
+        onRequestClose={cerrarFeedback} // Maneja el botón de atrás en Android
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.feedbackCard}>
+            
+            {/* Header: Título y Botón X */}
+            <View style={styles.feedbackHeader}>
+              <Text style={styles.feedbackTitle}>¡Llegaste a tu destino!</Text>
+              <TouchableOpacity onPress={cerrarFeedback} style={styles.closeButton}>
+                <MaterialCommunityIcons name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Información estática del viaje (Obligatorio) */}
+            <View style={styles.tripInfoContainer}>
+              <View style={styles.tripInfoRow}>
+                <MaterialCommunityIcons name="map-marker-outline" size={20} color="#1D2DA4" />
+                <Text style={styles.tripInfoText} numberOfLines={1}>
+                  <Text style={styles.bold}>De:</Text> {resumenViaje.origen}
+                </Text>
+              </View>
+              <View style={styles.tripInfoRow}>
+                <MaterialCommunityIcons name="map-marker-check" size={20} color="#1D2DA4" />
+                <Text style={styles.tripInfoText} numberOfLines={1}>
+                  <Text style={styles.bold}>A:</Text> {resumenViaje.destino}
+                </Text>
+              </View>
+              <View style={styles.tripInfoRow}>
+                <MaterialCommunityIcons name="clock-outline" size={20} color="#1D2DA4" />
+                <Text style={styles.tripInfoText}>
+                  <Text style={styles.bold}>Duración:</Text> {resumenViaje.duracion}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Calificación interactiva (Estrellas) */}
+            <Text style={styles.ratingTitle}>¿Cómo te sentiste en esta ruta?</Text>
+            <View style={styles.starsContainer}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                  <MaterialCommunityIcons 
+                    name={rating >= star ? 'star' : 'star-outline'} 
+                    size={40} 
+                    color="rgb(255, 122, 0)" // El naranja de tu diseño
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Input de texto para comentarios (Opcional) */}
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Dejanos un comentario (opcional)..."
+              placeholderTextColor="#94A3B8"
+              multiline
+              numberOfLines={4}
+              value={comentario}
+              onChangeText={setComentario}
+              textAlignVertical="top" // Para que empiece arriba en Android
+            />
+
+            {/* Botón de Enviar */}
+            <TouchableOpacity 
+              style={[styles.submitButton, rating === 0 && styles.submitButtonDisabled]} 
+              onPress={enviarFeedback}
+              disabled={rating === 0} // Puedes deshabilitarlo si quieres obligar al menos al rate
+            >
+              <Text style={styles.submitButtonText}>Enviar Feedback</Text>
+            </TouchableOpacity>
+
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -408,5 +621,128 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 13,
+  },
+  // --- ESTILOS DEL MODAL DE FEEDBACK ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Fondo semitransparente oscuro
+    justifyContent: 'flex-end', // Lo pegamos abajo
+  },
+  feedbackCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24, // Espacio extra para el notch de abajo en iPhone
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 10,
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  feedbackTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1D2DA4',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  tripInfoContainer: {
+    backgroundColor: '#F5F8FF',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  tripInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tripInfoText: {
+    fontSize: 14,
+    color: '#334155',
+    flex: 1,
+  },
+  bold: {
+    fontWeight: '700',
+    color: '#1A202C',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#EEF2F8',
+    marginVertical: 20,
+  },
+  ratingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A202C',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+  commentInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    minHeight: 100,
+    marginBottom: 20,
+    color: '#1A202C',
+  },
+  submitButton: {
+    backgroundColor: '#1D2DA4',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#A0ABDB', // Color más claro si está deshabilitado
+  },
+  submitButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  activeTripContainer: {
+    padding: 16,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  activeTripHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  activeTripTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1D2DA4',
+  },
+  endTripButton: {
+    backgroundColor: '#EF4444', 
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+  },
+  endTripText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
   },
 });
