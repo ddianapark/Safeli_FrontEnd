@@ -51,6 +51,7 @@ export default function HomeScreen() {
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+<<<<<<< HEAD
   const rutaActivaRef = useRef<RutaSegura | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [rating, setRating] = useState(0);
@@ -132,6 +133,17 @@ export default function HomeScreen() {
   useEffect(() => {
     let locationSub: Location.LocationSubscription | null = null;
 
+=======
+
+  const renderStars = (rating: number = 5) => {
+    const fullStars = '★'.repeat(rating);
+    const emptyStars = '☆'.repeat(5 - rating);
+    return `${fullStars}${emptyStars}`;
+  };
+  
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+>>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -139,6 +151,7 @@ export default function HomeScreen() {
           setLoadingLocation(false);
           return;
         }
+<<<<<<< HEAD
         locationSub = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.High,
@@ -152,21 +165,47 @@ export default function HomeScreen() {
             if (rutaActivaRef.current && activeRouteType === 'safeli') {
               verificarDesvio(nuevaPos, rutaActivaRef.current);
             }
+=======
+
+        // Posición inicial
+        const pos = await Location.getCurrentPositionAsync({});
+        setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setLoadingLocation(false);
+
+        // Suscripción al GPS en tiempo real para rastrear mientras avanza
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 2000,
+            distanceInterval: 3,
+          },
+          (loc) => {
+            setUserLocation({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            });
+>>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
           }
         );
       } catch (e) {
         console.warn('Location error', e);
-      } finally {
         setLoadingLocation(false);
       }
     })();
 
+<<<<<<< HEAD
     // Limpieza
     return () => {
       if (locationSub) locationSub.remove();
     };
   }, [activeRouteType]); 
 
+=======
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
+>>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
@@ -284,10 +323,10 @@ export default function HomeScreen() {
         />
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
           {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchButtonText}><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="1 0 20 20">
-	<path d="M0 0h24v24H0z" fill="none" />
-	<path fill="#fff" d="m19.6 21l-6.3-6.3q-.75.6-1.725.95T9.5 16q-2.725 0-4.612-1.888T3 9.5t1.888-4.612T9.5 3t4.613 1.888T16 9.5q0 1.1-.35 2.075T14.7 13.3l6.3 6.3zM9.5 14q1.875 0 3.188-1.312T14 9.5t-1.312-3.187T9.5 5T6.313 6.313T5 9.5t1.313 3.188T9.5 14" />
-</svg>
-</Text>}
+            <path d="M0 0h24v24H0z" fill="none" />
+            <path fill="#fff" d="m19.6 21l-6.3-6.3q-.75.6-1.725.95T9.5 16q-2.725 0-4.612-1.888T3 9.5t1.888-4.612T9.5 3t4.613 1.888T16 9.5q0 1.1-.35 2.075T14.7 13.3l6.3 6.3zM9.5 14q1.875 0 3.188-1.312T14 9.5t-1.312-3.187T9.5 5T6.313 6.313T5 9.5t1.313 3.188T9.5 14" />
+          </svg>
+          </Text>}
         </TouchableOpacity>
       </View>
 
@@ -306,8 +345,10 @@ export default function HomeScreen() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
                     <path d="M0 0h16v16H0z" fill="none" />
                     <path fill="#1f2b99" fillRule="evenodd" d="M8 1c3 0 5 2 5 5s-3 6-5 9c-2-3-5-6-5-9s2-5 5-5m0 2.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 0 0 0-5" clipRule="evenodd" />
-                </svg></Text>
+                  </svg>
+                </Text>
                 <Text style={styles.suggestionText} numberOfLines={2}>{item.description}</Text>
+
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -326,6 +367,7 @@ export default function HomeScreen() {
         />
       </View>
 
+<<<<<<< HEAD
      {/* Panel de rutas inspirado en el prototipo */}
       {(safeliRoute || googleRoute) && (
         <View style={styles.protoCardContainer}>
@@ -334,6 +376,23 @@ export default function HomeScreen() {
               <View style={styles.activeTripHeader}>
                 <MaterialCommunityIcons name="navigation" size={24} color="#1D2DA4" />
                 <Text style={styles.activeTripTitle}>Navegando hacia tu destino</Text>
+=======
+      {/* Panel de rutas */}
+      {(safeliRoute || googleRoute) && (
+        <View style={styles.protoCardContainer}>
+          
+          {/* Fila Camino Safeli */}
+          {safeliRoute && (
+            <TouchableOpacity 
+              style={[styles.protoRow, activeRouteType === 'safeli' && styles.protoRowActive]}
+              onPress={() => setActiveRouteType('safeli')}
+            >
+              <View style={styles.protoLeft}>
+                <Text style={styles.protoTitle}>Camino Safeli</Text>
+                <Text style={styles.protoStars}>
+                  {renderStars(safeliRoute.safetyAssessment?.estrellas ?? 5)}
+                </Text>
+>>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
               </View>
               <TouchableOpacity style={styles.endTripButton} onPress={finalizarViaje}>
                 <Text style={styles.endTripText}>Terminar viaje</Text>
@@ -361,6 +420,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
 
+<<<<<<< HEAD
               {googleRoute && (
                 <TouchableOpacity 
                   style={[styles.protoRow, activeRouteType === 'google' && styles.protoRowActive]}
@@ -381,7 +441,31 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
             </>
+=======
+          {/* Fila Camino Rápido */}
+          {googleRoute && (
+            <TouchableOpacity 
+              style={[styles.protoRow, activeRouteType === 'google' && styles.protoRowActive]}
+              onPress={() => setActiveRouteType('google')}
+            >
+              <View style={styles.protoLeft}>
+                <Text style={styles.protoTitle}>Camino Rápido</Text>
+                <Text style={styles.protoStarsMuted}>
+                  {renderStars(googleRoute.safetyAssessment?.estrellas ?? 1)}
+                </Text>
+              </View>
+              <View style={styles.protoRight}>
+                <Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>
+                {activeRouteType === 'google' && (
+                  <TouchableOpacity style={styles.protoStartButton2}>
+                    <Text style={styles.protoStartText}>Iniciar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </TouchableOpacity>
+>>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
           )}
+
         </View>
       )}
 

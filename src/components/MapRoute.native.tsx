@@ -3,6 +3,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { StyleSheet } from 'react-native';
 import { LatLng, RouteResult } from '../services/googleApi';
 import { RutaSegura } from '../services/safeliApi';
+import { splitRouteByProgress } from '../services/routeUtils';
 
 interface Props {
   userLocation: LatLng;
@@ -46,10 +47,14 @@ export default function MapRouteNative({
     }
   }, [safeliRoute, googleRoute]);
 
+  // Preparamos los arrays de puntos de la ruta activa
+  const activePoints: LatLng[] = activeRouteType === 'safeli' ? safeliNativeCoords : googleNativeCoords;
+  const { traveled, remaining } = splitRouteByProgress(userLocation, activePoints);
+
   return (
     <MapView
       ref={mapRef}
-      style={StyleSheet.absoluteFillObject}
+      style={StyleSheet.absoluteFill}
       provider={PROVIDER_GOOGLE}
       initialRegion={{
         latitude: userLocation.latitude,
@@ -63,25 +68,44 @@ export default function MapRouteNative({
         <Marker coordinate={destination} title="Destino" pinColor="#E63946" />
       )}
 
-      {googleNativeCoords.length > 0 && (
-        <Polyline 
-          coordinates={googleNativeCoords} 
-          strokeColor={activeRouteType === 'google' ? '#FF7A00' : 'rgba(255, 122, 0, 0.35)'} 
-          strokeWidth={activeRouteType === 'google' ? 6 : 4}
-          zIndex={activeRouteType === 'google' ? 2 : 1}
-          tappable={true}
+      {/* RUTA NO ACTIVA: Se dibuja atenuada como opción de fondo */}
+      {activeRouteType === 'google' && safeliNativeCoords.length > 0 && (
+        <Polyline
+          coordinates={safeliNativeCoords}
+          strokeColor="rgba(29, 45, 164, 0.35)"
+          strokeWidth={4}
+          tappable
+          onPress={() => onSelectRoute('safeli')}
+        />
+      )}
+
+      {activeRouteType === 'safeli' && googleNativeCoords.length > 0 && (
+        <Polyline
+          coordinates={googleNativeCoords}
+          strokeColor="rgba(255, 122, 0, 0.35)"
+          strokeWidth={4}
+          tappable
           onPress={() => onSelectRoute('google')}
         />
       )}
-      
-      {safeliNativeCoords.length > 0 && (
-        <Polyline 
-          coordinates={safeliNativeCoords}
-          strokeColor={activeRouteType === 'safeli' ? '#1D2DA4' : 'rgba(29, 45, 164, 0.35)'} 
-          strokeWidth={activeRouteType === 'safeli' ? 6 : 4}
-          zIndex={activeRouteType === 'safeli' ? 2 : 1}
-          tappable={true}
-          onPress={() => onSelectRoute('safeli')}
+
+      {/* RUTA ACTIVA: Tramo ya recorrido (Transparencia alta / opacidad baja) */}
+      {traveled.length > 1 && (
+        <Polyline
+          coordinates={traveled}
+          strokeColor={activeRouteType === 'safeli' ? 'rgba(29, 45, 164, 0.25)' : 'rgba(255, 122, 0, 0.25)'}
+          strokeWidth={5}
+          zIndex={2}
+        />
+      )}
+
+      {/* RUTA ACTIVA: Tramo restante por recorrer (Opacidad 100%) */}
+      {remaining.length > 1 && (
+        <Polyline
+          coordinates={remaining}
+          strokeColor={activeRouteType === 'safeli' ? '#1D2DA4' : '#FF7A00'}
+          strokeWidth={6}
+          zIndex={3}
         />
       )}
     </MapView>

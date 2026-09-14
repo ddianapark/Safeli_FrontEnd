@@ -1,10 +1,15 @@
-// Definimos la URL base de tu API en producción
 const BASE_URL = 'http://localhost:3000/api/calcular-camino-seguro';
 
-// Interfaz para las coordenadas, ideal para la integración con los mapas en el frontend
 export interface Coordenadas {
   latitude: number;
   longitude: number;
+}
+
+export interface SafetyAssessment {
+  estrellas: number;
+  porcentajeExpuesto: number;
+  metrosExpuestos: number;
+  distanciaTotalMetros: number;
 }
 
 export interface RutaSegura {
@@ -12,6 +17,7 @@ export interface RutaSegura {
   distanceText: string;
   durationText: string;
   durationSeconds: number;
+  safetyAssessment?: SafetyAssessment; // 🌟 Agregado
 }
 
 function formatDuration(seconds: number): string {
@@ -45,11 +51,15 @@ export const obtenerCaminoSeguro = async (origen: Coordenadas, destino: Coordena
   }
 
   const summary = feature.properties?.summary ?? { distance: 0, duration: 0 };
+  
+  // Extraemos la evaluación de seguridad devuelta por el backend
+  const safetyAssessment = feature.properties?.safety_assessment || data.safety_assessment;
 
   return {
     geometry: feature.geometry,
     distanceText: formatDistance(summary.distance),
     durationText: formatDuration(summary.duration),
     durationSeconds: summary.duration,
+    safetyAssessment: safetyAssessment, // 🌟 Se asigna aquí
   };
 };

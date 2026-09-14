@@ -7,10 +7,18 @@ export interface LatLng {
   longitude: number;
 }
 
+export interface SafetyAssessment {
+  estrellas: number;
+  porcentajeExpuesto: number;
+  metrosExpuestos: number;
+  distanciaTotalMetros: number;
+}
+
 export interface RouteResult {
   polylinePoints: LatLng[];
   distanceText?: string;
   durationText?: string;
+  safetyAssessment?: SafetyAssessment; // 🌟 Nueva propiedad
 }
 
 export interface PlaceSuggestion {
@@ -23,9 +31,25 @@ const BACKEND_URL = 'http://localhost:3000';
 
 export async function getRouteORS(origin: LatLng, destination: LatLng): Promise<RouteResult | null> {
   try {
-    const res = await fetch(
-      BACKEND_URL + `/api/directions?origin=${origin.longitude},${origin.latitude}&destination=${destination.longitude},${destination.latitude}`
-    );
+    const payload = {
+      origin: {
+        latitude: origin.latitude,
+        longitude: origin.longitude,
+      },
+      destination: {
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+      },
+    };
+
+    const res = await fetch(BACKEND_URL + '/api/directions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
     if (!res.ok) return null;
     const data: RouteResult = await res.json();
     if (!data.polylinePoints || data.polylinePoints.length === 0) return null;
