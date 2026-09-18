@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { LatLng, RouteResult } from '../services/googleApi';
 import { RutaSegura } from '../services/safeliApi';
+import { splitRouteByProgress } from '../services/routeUtils';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -77,13 +78,24 @@ export default function MapRouteWeb({
   activeRouteType,
   onSelectRoute
 }: Props) {
-
-  const hasSafeliGeometry = safeliRoute?.geometry?.type && Array.isArray(safeliRoute.geometry.coordinates);
   
-  // Transformación del polyline de Google a arrays para Leaflet ([lat, lng])
-  const googleLeafletCoords = googleRoute?.polylinePoints
-    ? googleRoute.polylinePoints.map(p => [p.latitude, p.longitude] as [number, number])
+  // Puntos Safeli en formato LatLng
+  const safeliPoints: LatLng[] = safeliRoute?.geometry?.coordinates
+    ? safeliRoute.geometry.coordinates.map((c: [number, number]) => ({ latitude: c[1], longitude: c[0] }))
     : [];
+
+  // Puntos Google/ORS en formato LatLng
+  const googlePoints: LatLng[] = googleRoute?.polylinePoints || [];
+
+  // Puntos de la ruta activa y separación por progreso
+  const activePoints = activeRouteType === 'safeli' ? safeliPoints : googlePoints;
+  const { traveled, remaining } = splitRouteByProgress(userLocation, activePoints);
+
+  const traveledLeaflet = traveled.map(p => [p.latitude, p.longitude] as [number, number]);
+  const remainingLeaflet = remaining.map(p => [p.latitude, p.longitude] as [number, number]);
+
+  const inactiveGoogleLeaflet = googlePoints.map(p => [p.latitude, p.longitude] as [number, number]);
+  const inactiveSafeliLeaflet = safeliPoints.map(p => [p.latitude, p.longitude] as [number, number]);
 
   return (
     <MapContainer
@@ -93,7 +105,7 @@ export default function MapRouteWeb({
       zoomControl={true}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        attribution='&copy; OpenStreetMap'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
@@ -103,35 +115,45 @@ export default function MapRouteWeb({
         <Marker position={[destination.latitude, destination.longitude]} icon={destinationIcon} />
       )}
 
-      {googleLeafletCoords.length > 0 && (
+      {/* RUTA NO ACTIVA */}
+      {activeRouteType === 'safeli' && inactiveGoogleLeaflet.length > 0 && (
         <Polyline
-          positions={googleLeafletCoords}
+          positions={inactiveGoogleLeaflet}
+          pathOptions={{ color: '#FF7A00', opacity: 0.35, weight: 4 }}
+          eventHandlers={{ click: () => onSelectRoute('google') }}
+        />
+      )}
+
+      {activeRouteType === 'google' && inactiveSafeliLeaflet.length > 0 && (
+        <Polyline
+          positions={inactiveSafeliLeaflet}
+          pathOptions={{ color: '#1D2DA4', opacity: 0.35, weight: 4 }}
+          eventHandlers={{ click: () => onSelectRoute('safeli') }}
+        />
+      )}
+
+      {/* RUTA ACTIVA: Recorrida (Baja opacidad) */}
+      {traveledLeaflet.length > 1 && (
+        <Polyline
+          positions={traveledLeaflet}
           pathOptions={{
-            color: '#FF7A00',
-            weight: activeRouteType === 'google' ? 6 : 4,
-            opacity: activeRouteType === 'google' ? 1.0 : 0.5
-          }}
-          eventHandlers={{
-            click: () => onSelectRoute('google')
+            color: activeRouteType === 'safeli' ? '#1D2DA4' : '#FF7A00',
+            opacity: 0.25,
+            weight: 5
           }}
         />
       )}
 
-      {hasSafeliGeometry && (
-        <GeoJSONErrorBoundary data={safeliRoute.geometry}>
-          <GeoJSON
-            key={`safeli-web-${activeRouteType}-${JSON.stringify(safeliRoute.geometry).length}`}
-            data={safeliRoute.geometry as any}
-            style={() => ({
-              color: '#1D2DA4',
-              weight: activeRouteType === 'safeli' ? 6 : 4,
-              opacity: activeRouteType === 'safeli' ? 1.0 : 0.5
-            })}
-            eventHandlers={{
-              click: () => onSelectRoute('safeli')
-            }}
-          />
-        </GeoJSONErrorBoundary>
+      {/* RUTA ACTIVA: Restante (Opacidad alta) */}
+      {remainingLeaflet.length > 1 && (
+        <Polyline
+          positions={remainingLeaflet}
+          pathOptions={{
+            color: activeRouteType === 'safeli' ? '#1D2DA4' : '#FF7A00',
+            opacity: 1.0,
+            weight: 6
+          }}
+        />
       )}
 
       <FitBounds safeliRoute={safeliRoute} googleRoute={googleRoute} />
