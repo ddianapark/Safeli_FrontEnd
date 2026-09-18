@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View, Modal } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from 'react-native';
 import MapRoute from '../components/MapRoute';
 import { useAuth } from '../context/authContext';
 import { geocodeAddress, getPlaceSuggestions, getRouteORS, LatLng, PlaceSuggestion, RouteResult } from '../services/googleApi';
@@ -25,21 +25,15 @@ const LockRating = ({ score, maxScore = 5, color }: { score: number, maxScore?: 
 const calcularDistanciaMetros = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371e3; // Radio de la Tierra en metros
   const toRad = (valor: number) => (valor * Math.PI) / 180;
-  
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c; 
 };
 
 export default function HomeScreen() {
-  const { token } = useAuth(); 
+  const { token } = useAuth();
   const [query, setQuery] = useState('');
   const [userLocation, setUserLocation] = useState<LatLng>({ latitude: -34.6037, longitude: -58.3816 });
   const [destination, setDestination] = useState<LatLng | null>(null);
@@ -51,17 +45,14 @@ export default function HomeScreen() {
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-<<<<<<< HEAD
   const rutaActivaRef = useRef<RutaSegura | null>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [rating, setRating] = useState(0);
   const [comentario, setComentario] = useState('');
   const [resumenViaje, setResumenViaje] = useState({ origen: '', destino: '', duracion: '' });
   const [enViaje, setEnViaje] = useState(false);
-  
-  useEffect(() => {
-    rutaActivaRef.current = safeliRoute;
-  }, [safeliRoute]);
+
+  useEffect(() => { rutaActivaRef.current = safeliRoute; }, [safeliRoute]);
 
   const alertarDesvio = () => {
     Vibration.vibrate([0, 500, 200, 500], false);
@@ -70,305 +61,92 @@ export default function HomeScreen() {
       "Te has alejado del camino sugerido. ¿Deseas recalcular la ruta segura desde tu ubicación actual?",
       [
         { text: "Ignorar", style: "cancel", onPress: () => Vibration.cancel() },
-        { 
-          text: "Recalcular", 
-          onPress: () => {
-            Vibration.cancel();
-            if (destination) resolveAndRouteDual(destination); // Vuelve a calcular hacia el destino
-          }
-        }
+        { text: "Recalcular", onPress: () => { Vibration.cancel(); if (destination) resolveAndRouteDual(destination); } }
       ]
     );
   };
 
   const verificarDesvio = (ubicacionActual: LatLng, rutaActiva: RutaSegura) => {
     const TOLERANCIA_METROS = 50;
-    
-    if (!rutaActiva.geometry || !rutaActiva.geometry.coordinates || rutaActiva.geometry.coordinates.length === 0) {
-        return; 
-    }
+    if (!rutaActiva.geometry || !rutaActiva.geometry.coordinates || rutaActiva.geometry.coordinates.length === 0) return;
     const coordenadasGeoJSON = rutaActiva.geometry.coordinates;
-    const distanciaMinima = Math.min(
-      ...coordenadasGeoJSON.map((coord: [number, number]) => {
-          const lonRuta = coord[0];
-          const latRuta = coord[1];
-
-          return calcularDistanciaMetros(
-            ubicacionActual.latitude, 
-            ubicacionActual.longitude, 
-            latRuta, 
-            lonRuta
-          );
-      })
-    );
-
-    if (distanciaMinima > TOLERANCIA_METROS) {
-      alertarDesvio();
-    }
+    const distanciaMinima = Math.min(...coordenadasGeoJSON.map((coord: [number, number]) => calcularDistanciaMetros(ubicacionActual.latitude, ubicacionActual.longitude, coord[1], coord[0])));
+    if (distanciaMinima > TOLERANCIA_METROS) alertarDesvio();
   };
 
-  const finalizarViaje = () => {
-    setEnViaje(false); 
-    
-    setResumenViaje({
-      origen: 'Tu ubicación de origen',
-      destino: query || 'Destino',
-      duracion: safeliRoute?.durationText || 'N/D'
-    });
-    
-    setShowFeedbackModal(true);
-  };
-
-  const cerrarFeedback = () => {
-    setShowFeedbackModal(false);
-    setRating(0);
-    setComentario('');
-  };
-
-  const enviarFeedback = () => {
-    console.log("Feedback enviado:", { rating, comentario, resumenViaje });
-    cerrarFeedback();
-  };
+  const finalizarViaje = () => { setEnViaje(false); setResumenViaje({ origen: 'Tu ubicación de origen', destino: query || 'Destino', duracion: safeliRoute?.durationText || 'N/D' }); setShowFeedbackModal(true); };
+  const cerrarFeedback = () => { setShowFeedbackModal(false); setRating(0); setComentario(''); };
+  const enviarFeedback = () => { console.log('Feedback enviado:', { rating, comentario, resumenViaje }); cerrarFeedback(); };
 
   useEffect(() => {
     let locationSub: Location.LocationSubscription | null = null;
-
-=======
-
-  const renderStars = (rating: number = 5) => {
-    const fullStars = '★'.repeat(rating);
-    const emptyStars = '☆'.repeat(5 - rating);
-    return `${fullStars}${emptyStars}`;
-  };
-  
-  useEffect(() => {
-    let subscription: Location.LocationSubscription | null = null;
->>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setLoadingLocation(false);
-          return;
-        }
-<<<<<<< HEAD
-        locationSub = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 5000,
-            distanceInterval: 10,
-          },
-          (location) => {
-            const nuevaPos = { latitude: location.coords.latitude, longitude: location.coords.longitude };
-            setUserLocation(nuevaPos);
-
-            if (rutaActivaRef.current && activeRouteType === 'safeli') {
-              verificarDesvio(nuevaPos, rutaActivaRef.current);
-            }
-=======
-
-        // Posición inicial
+        if (status !== 'granted') { setLoadingLocation(false); return; }
         const pos = await Location.getCurrentPositionAsync({});
         setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         setLoadingLocation(false);
-
-        // Suscripción al GPS en tiempo real para rastrear mientras avanza
-        subscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 2000,
-            distanceInterval: 3,
-          },
-          (loc) => {
-            setUserLocation({
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            });
->>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
-          }
-        );
-      } catch (e) {
-        console.warn('Location error', e);
-        setLoadingLocation(false);
-      }
+        locationSub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 2000, distanceInterval: 3 }, (loc) => {
+          const nuevaPos = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+          setUserLocation(nuevaPos);
+          if (rutaActivaRef.current && activeRouteType === 'safeli') verificarDesvio(nuevaPos, rutaActivaRef.current);
+        });
+      } catch (e) { console.warn('Location error', e); setLoadingLocation(false); }
     })();
-
-<<<<<<< HEAD
-    // Limpieza
-    return () => {
-      if (locationSub) locationSub.remove();
-    };
-  }, [activeRouteType]); 
-
-=======
-    return () => {
-      subscription?.remove();
-    };
-  }, []);
->>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
+    return () => { if (locationSub) locationSub.remove(); };
+  }, [activeRouteType]);
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (text.trim().length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      const results = await getPlaceSuggestions(text.trim());
-      setSuggestions(results);
-      setShowSuggestions(results.length > 0);
-    }, 350);
+    if (text.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
+    debounceRef.current = setTimeout(async () => { const results = await getPlaceSuggestions(text.trim()); setSuggestions(results); setShowSuggestions(results.length > 0); }, 350);
   };
 
-  // ─── Resolver unificado para traer AMBAS rutas en paralelo ──────────────────
   const resolveAndRouteDual = async (geo: LatLng) => {
     setDestination(geo);
-    
-    // Ejecutamos ambas solicitudes concurrentemente con los datos y tokens correctos
-    const [googleRes, safeliRes] = await Promise.allSettled([
-      getRouteORS(userLocation, geo),
-      obtenerCaminoSeguro(userLocation, geo, token || '')
-    ]);
-
-    if (googleRes.status === 'fulfilled' && googleRes.value) {
-      setGoogleRoute(googleRes.value);
-    } else {
-      console.warn('Error al obtener la ruta de Google');
-      setGoogleRoute(null);
-    }
-
-    if (safeliRes.status === 'fulfilled' && safeliRes.value) {
-      setSafeliRoute(safeliRes.value);
-    } else {
-      console.warn('Error al obtener la ruta de Safeli');
-      setSafeliRoute(null);
-    }
-
-    if (safeliRes.status === 'fulfilled' && safeliRes.value) {
-      setActiveRouteType('safeli');
-    } else {
-      setActiveRouteType('google');
-    }
+    const [googleRes, safeliRes] = await Promise.allSettled([ getRouteORS(userLocation, geo), obtenerCaminoSeguro(userLocation, geo, token || '') ]);
+    if (googleRes.status === 'fulfilled' && googleRes.value) setGoogleRoute(googleRes.value); else { console.warn('Error al obtener la ruta de Google'); setGoogleRoute(null); }
+    if (safeliRes.status === 'fulfilled' && safeliRes.value) { setSafeliRoute(safeliRes.value); setActiveRouteType('safeli'); } else { console.warn('Error al obtener la ruta de Safeli'); setSafeliRoute(null); setActiveRouteType('google'); }
   };
 
   const handleSearch = async () => {
-    if (!query.trim()) return;
-    Keyboard.dismiss();
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setSearching(true);
-    try {
-      const geo = await geocodeAddress(query.trim());
-      if (!geo) {
-        alert('No se encontró la dirección');
-        setDestination(null);
-        setSafeliRoute(null);
-        setGoogleRoute(null);
-        return;
-      }
-      await resolveAndRouteDual(geo);
-    } catch (e) {
-      console.error(e);
-      alert('Error buscando las rutas');
-    } finally {
-      setSearching(false);
-    }
+    if (!query.trim()) return; Keyboard.dismiss(); setSuggestions([]); setShowSuggestions(false); setSearching(true);
+    try { const geo = await geocodeAddress(query.trim()); if (!geo) { alert('No se encontró la dirección'); setDestination(null); setSafeliRoute(null); setGoogleRoute(null); return; } await resolveAndRouteDual(geo); } catch (e) { console.error(e); alert('Error buscando las rutas'); } finally { setSearching(false); }
   };
 
   const handleSelectSuggestion = async (suggestion: PlaceSuggestion) => {
-    setQuery(suggestion.description);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    Keyboard.dismiss();
-    setSearching(true);
-    try {
-      const geo = suggestion.coordinates ?? await geocodeAddress(suggestion.description);
-      if (!geo) {
-        alert('No se encontró la dirección');
-        return;
-      }
-      await resolveAndRouteDual(geo);
-    } catch (e) {
-      console.error(e);
-      alert('Error buscando las rutas');
-    } finally {
-      setSearching(false);
-    }
+    setQuery(suggestion.description); setSuggestions([]); setShowSuggestions(false); Keyboard.dismiss(); setSearching(true);
+    try { const geo = suggestion.coordinates ?? await geocodeAddress(suggestion.description); if (!geo) { alert('No se encontró la dirección'); return; } await resolveAndRouteDual(geo); } catch (e) { console.error(e); alert('Error buscando las rutas'); } finally { setSearching(false); }
   };
 
-  if (loadingLocation) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1A3FA8" />
-      </View>
-    );
-  }
+  if (loadingLocation) return (<View style={styles.center}><ActivityIndicator size="large" color="#1A3FA8" /></View>);
 
   return (
     <View style={styles.container}>
-      {/* Search bar */}
       <View style={styles.searchBar}>
-        <TextInput
-          placeholder="Buscar dirección o lugar"
-          value={query}
-          onChangeText={handleQueryChange}
-          style={styles.searchInput}
-          returnKeyType="search"
-          onSubmitEditing={handleSearch}
-          onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-        />
-        <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          {searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchButtonText}><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="1 0 20 20">
-            <path d="M0 0h24v24H0z" fill="none" />
-            <path fill="#fff" d="m19.6 21l-6.3-6.3q-.75.6-1.725.95T9.5 16q-2.725 0-4.612-1.888T3 9.5t1.888-4.612T9.5 3t4.613 1.888T16 9.5q0 1.1-.35 2.075T14.7 13.3l6.3 6.3zM9.5 14q1.875 0 3.188-1.312T14 9.5t-1.312-3.187T9.5 5T6.313 6.313T5 9.5t1.313 3.188T9.5 14" />
-          </svg>
-          </Text>}
-        </TouchableOpacity>
+        <TextInput placeholder="Buscar dirección o lugar" value={query} onChangeText={handleQueryChange} style={styles.searchInput} returnKeyType="search" onSubmitEditing={handleSearch} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)} />
+        <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>{searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchButtonText}>Buscar</Text>}</TouchableOpacity>
       </View>
 
-      {/* Suggestions dropdown */}
       {showSuggestions && (
         <View style={styles.suggestionsContainer}>
           <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled showsVerticalScrollIndicator={false}>
             {suggestions.map((item, index) => (
-              <TouchableOpacity
-                key={item.placeId}
-                style={[styles.suggestionItem, index < suggestions.length - 1 && styles.suggestionItemBorder]}
-                onPress={() => handleSelectSuggestion(item)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.suggestionIcon}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 16 16">
-                    <path d="M0 0h16v16H0z" fill="none" />
-                    <path fill="#1f2b99" fillRule="evenodd" d="M8 1c3 0 5 2 5 5s-3 6-5 9c-2-3-5-6-5-9s2-5 5-5m0 2.5a2.5 2.5 0 1 0 0 5a2.5 2.5 0 0 0 0-5" clipRule="evenodd" />
-                  </svg>
-                </Text>
+              <TouchableOpacity key={item.placeId} style={[styles.suggestionItem, index < suggestions.length - 1 && styles.suggestionItemBorder]} onPress={() => handleSelectSuggestion(item)} activeOpacity={0.7}>
+                <Text style={styles.suggestionIcon}>📍</Text>
                 <Text style={styles.suggestionText} numberOfLines={2}>{item.description}</Text>
-
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
       )}
 
-      {/* Map pasándole todas las propiedades del desarrollo dual */}
       <View style={styles.mapContainer}>
-        <MapRoute 
-          userLocation={userLocation} 
-          destination={destination ?? userLocation} 
-          safeliRoute={safeliRoute}
-          googleRoute={googleRoute}
-          activeRouteType={activeRouteType}
-          onSelectRoute={setActiveRouteType}
-        />
+        <MapRoute userLocation={userLocation} destination={destination ?? userLocation} safeliRoute={safeliRoute} googleRoute={googleRoute} activeRouteType={activeRouteType} onSelectRoute={setActiveRouteType} />
       </View>
 
-<<<<<<< HEAD
-     {/* Panel de rutas inspirado en el prototipo */}
       {(safeliRoute || googleRoute) && (
         <View style={styles.protoCardContainer}>
           {enViaje ? (
@@ -376,176 +154,51 @@ export default function HomeScreen() {
               <View style={styles.activeTripHeader}>
                 <MaterialCommunityIcons name="navigation" size={24} color="#1D2DA4" />
                 <Text style={styles.activeTripTitle}>Navegando hacia tu destino</Text>
-=======
-      {/* Panel de rutas */}
-      {(safeliRoute || googleRoute) && (
-        <View style={styles.protoCardContainer}>
-          
-          {/* Fila Camino Safeli */}
-          {safeliRoute && (
-            <TouchableOpacity 
-              style={[styles.protoRow, activeRouteType === 'safeli' && styles.protoRowActive]}
-              onPress={() => setActiveRouteType('safeli')}
-            >
-              <View style={styles.protoLeft}>
-                <Text style={styles.protoTitle}>Camino Safeli</Text>
-                <Text style={styles.protoStars}>
-                  {renderStars(safeliRoute.safetyAssessment?.estrellas ?? 5)}
-                </Text>
->>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
               </View>
-              <TouchableOpacity style={styles.endTripButton} onPress={finalizarViaje}>
-                <Text style={styles.endTripText}>Terminar viaje</Text>
-              </TouchableOpacity>
+              <TouchableOpacity style={styles.endTripButton} onPress={finalizarViaje}><Text style={styles.endTripText}>Terminar viaje</Text></TouchableOpacity>
             </View>
           ) : (
             <>
               {safeliRoute && (
-                <TouchableOpacity 
-                  style={[styles.protoRow, activeRouteType === 'safeli' && styles.protoRowActive]}
-                  onPress={() => setActiveRouteType('safeli')}
-                >
-                  <View style={styles.protoLeft}>
-                    <Text style={styles.protoTitle}>Camino Safeli</Text>
-                    <LockRating score={5} color="#1D2DA4" />
-                  </View>
-                  <View style={styles.protoRight}>
-                    <Text style={styles.protoTime}>{safeliRoute.durationText || 'N/D'}</Text>
-                    {activeRouteType === 'safeli' && (
-                      <TouchableOpacity style={styles.protoStartButton} onPress={() => setEnViaje(true)}>
-                        <Text style={styles.protoStartText}>Iniciar</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                <TouchableOpacity style={[styles.protoRow, activeRouteType === 'safeli' && styles.protoRowActive]} onPress={() => setActiveRouteType('safeli')}>
+                  <View style={styles.protoLeft}><Text style={styles.protoTitle}>Camino Safeli</Text><LockRating score={safeliRoute.safetyAssessment?.estrellas ?? 5} color="#1D2DA4" /></View>
+                  <View style={styles.protoRight}><Text style={styles.protoTime}>{safeliRoute.durationText || 'N/D'}</Text>{activeRouteType === 'safeli' && (<TouchableOpacity style={styles.protoStartButton} onPress={() => setEnViaje(true)}><Text style={styles.protoStartText}>Iniciar</Text></TouchableOpacity>)}</View>
                 </TouchableOpacity>
               )}
 
-<<<<<<< HEAD
               {googleRoute && (
-                <TouchableOpacity 
-                  style={[styles.protoRow, activeRouteType === 'google' && styles.protoRowActive]}
-                  onPress={() => setActiveRouteType('google')}
-                >
-                  <View style={styles.protoLeft}>
-                    <Text style={styles.protoTitle}>Camino Rápido</Text>
-                    <LockRating score={2} color="rgb(255, 122, 0)" />
-                  </View>
-                  <View style={styles.protoRight}>
-                    <Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>
-                    {activeRouteType === 'google' && (
-                      <TouchableOpacity style={styles.protoStartButton2} onPress={() => setEnViaje(true)}>
-                        <Text style={styles.protoStartText}>Iniciar</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                <TouchableOpacity style={[styles.protoRow, activeRouteType === 'google' && styles.protoRowActive]} onPress={() => setActiveRouteType('google')}>
+                  <View style={styles.protoLeft}><Text style={styles.protoTitle}>Camino Rápido</Text><LockRating score={googleRoute.safetyAssessment?.estrellas ?? 1} color="rgb(255, 122, 0)" /></View>
+                  <View style={styles.protoRight}><Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>{activeRouteType === 'google' && (<TouchableOpacity style={styles.protoStartButton2} onPress={() => setEnViaje(true)}><Text style={styles.protoStartText}>Iniciar</Text></TouchableOpacity>)}</View>
                 </TouchableOpacity>
               )}
             </>
-=======
-          {/* Fila Camino Rápido */}
-          {googleRoute && (
-            <TouchableOpacity 
-              style={[styles.protoRow, activeRouteType === 'google' && styles.protoRowActive]}
-              onPress={() => setActiveRouteType('google')}
-            >
-              <View style={styles.protoLeft}>
-                <Text style={styles.protoTitle}>Camino Rápido</Text>
-                <Text style={styles.protoStarsMuted}>
-                  {renderStars(googleRoute.safetyAssessment?.estrellas ?? 1)}
-                </Text>
-              </View>
-              <View style={styles.protoRight}>
-                <Text style={styles.protoTime}>{googleRoute.durationText || 'N/D'}</Text>
-                {activeRouteType === 'google' && (
-                  <TouchableOpacity style={styles.protoStartButton2}>
-                    <Text style={styles.protoStartText}>Iniciar</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </TouchableOpacity>
->>>>>>> d1e23d2b11b240eec0c7987e1f258b8139f2bf36
           )}
-
         </View>
       )}
 
-      {/* MODAL DE FEEDBACK */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showFeedbackModal}
-        onRequestClose={cerrarFeedback} // Maneja el botón de atrás en Android
-      >
+      <Modal animationType="slide" transparent visible={showFeedbackModal} onRequestClose={cerrarFeedback}>
         <View style={styles.modalOverlay}>
           <View style={styles.feedbackCard}>
-            
-            {/* Header: Título y Botón X */}
             <View style={styles.feedbackHeader}>
               <Text style={styles.feedbackTitle}>¡Llegaste a tu destino!</Text>
-              <TouchableOpacity onPress={cerrarFeedback} style={styles.closeButton}>
-                <MaterialCommunityIcons name="close" size={24} color="#64748B" />
-              </TouchableOpacity>
+              <TouchableOpacity onPress={cerrarFeedback} style={styles.closeButton}><MaterialCommunityIcons name="close" size={24} color="#64748B" /></TouchableOpacity>
             </View>
 
-            {/* Información estática del viaje (Obligatorio) */}
             <View style={styles.tripInfoContainer}>
-              <View style={styles.tripInfoRow}>
-                <MaterialCommunityIcons name="map-marker-outline" size={20} color="#1D2DA4" />
-                <Text style={styles.tripInfoText} numberOfLines={1}>
-                  <Text style={styles.bold}>De:</Text> {resumenViaje.origen}
-                </Text>
-              </View>
-              <View style={styles.tripInfoRow}>
-                <MaterialCommunityIcons name="map-marker-check" size={20} color="#1D2DA4" />
-                <Text style={styles.tripInfoText} numberOfLines={1}>
-                  <Text style={styles.bold}>A:</Text> {resumenViaje.destino}
-                </Text>
-              </View>
-              <View style={styles.tripInfoRow}>
-                <MaterialCommunityIcons name="clock-outline" size={20} color="#1D2DA4" />
-                <Text style={styles.tripInfoText}>
-                  <Text style={styles.bold}>Duración:</Text> {resumenViaje.duracion}
-                </Text>
-              </View>
+              <View style={styles.tripInfoRow}><MaterialCommunityIcons name="map-marker-outline" size={20} color="#1D2DA4" /><Text style={styles.tripInfoText} numberOfLines={1}><Text style={styles.bold}>De:</Text> {resumenViaje.origen}</Text></View>
+              <View style={styles.tripInfoRow}><MaterialCommunityIcons name="map-marker-check" size={20} color="#1D2DA4" /><Text style={styles.tripInfoText} numberOfLines={1}><Text style={styles.bold}>A:</Text> {resumenViaje.destino}</Text></View>
+              <View style={styles.tripInfoRow}><MaterialCommunityIcons name="clock-outline" size={20} color="#1D2DA4" /><Text style={styles.tripInfoText}><Text style={styles.bold}>Duración:</Text> {resumenViaje.duracion}</Text></View>
             </View>
 
             <View style={styles.divider} />
 
-            {/* Calificación interactiva (Estrellas) */}
             <Text style={styles.ratingTitle}>¿Cómo te sentiste en esta ruta?</Text>
-            <View style={styles.starsContainer}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                  <MaterialCommunityIcons 
-                    name={rating >= star ? 'star' : 'star-outline'} 
-                    size={40} 
-                    color="rgb(255, 122, 0)" // El naranja de tu diseño
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
+            <View style={styles.starsContainer}>{[1,2,3,4,5].map((star) => (<TouchableOpacity key={star} onPress={() => setRating(star)}><MaterialCommunityIcons name={rating >= star ? 'star' : 'star-outline'} size={40} color="rgb(255, 122, 0)" /></TouchableOpacity>))}</View>
 
-            {/* Input de texto para comentarios (Opcional) */}
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Dejanos un comentario (opcional)..."
-              placeholderTextColor="#94A3B8"
-              multiline
-              numberOfLines={4}
-              value={comentario}
-              onChangeText={setComentario}
-              textAlignVertical="top" // Para que empiece arriba en Android
-            />
+            <TextInput style={styles.commentInput} placeholder="Dejanos un comentario (opcional)..." placeholderTextColor="#94A3B8" multiline numberOfLines={4} value={comentario} onChangeText={setComentario} textAlignVertical="top" />
 
-            {/* Botón de Enviar */}
-            <TouchableOpacity 
-              style={[styles.submitButton, rating === 0 && styles.submitButtonDisabled]} 
-              onPress={enviarFeedback}
-              disabled={rating === 0} // Puedes deshabilitarlo si quieres obligar al menos al rate
-            >
-              <Text style={styles.submitButtonText}>Enviar Feedback</Text>
-            </TouchableOpacity>
-
+            <TouchableOpacity style={[styles.submitButton, rating === 0 && styles.submitButtonDisabled]} onPress={enviarFeedback} disabled={rating === 0}><Text style={styles.submitButtonText}>Enviar Feedback</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -634,7 +287,6 @@ const styles = StyleSheet.create({
   suggestionIcon: { fontSize: 15 },
   suggestionText: { flex: 1, fontSize: 13, color: '#1A202C', lineHeight: 18 },
   mapContainer: { flex: 1 },
-  
   protoCardContainer: {
     position: 'absolute',
     bottom: 72,
