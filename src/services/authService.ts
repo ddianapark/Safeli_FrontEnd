@@ -219,7 +219,7 @@ export const authService = {
         confirmPassword: data.confirmPassword,
       };
 
-      await apiClient.post('/auth/change-password', payload);
+      await apiClient.patch('/auth/change-password', payload);
     } catch (error) {
       throw parseBackendError(error);
     }
