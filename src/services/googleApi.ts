@@ -140,3 +140,31 @@ export async function getPlaceSuggestions(input: string): Promise<PlaceSuggestio
   }
   return getSuggestionsGoogle(input);
 }
+
+// Reverse geocoding: devuelve una dirección legible a partir de coordenadas
+export async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+  try {
+    const googleApiKey = EXPO_PUBLIC_GOOGLE_API_KEY ?? "";
+    // Si tenemos API key, preferimos usar la API de Google en móvil
+    if (googleApiKey) {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${googleApiKey}&language=es`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
+        return data.results[0].formatted_address;
+      }
+      return null;
+    }
+
+    // Fallback a Nominatim (funciona sin API key)
+    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=es`;
+    const nomRes = await fetch(nominatimUrl, { headers: { 'Accept-Language': 'es' } });
+    if (!nomRes.ok) return null;
+    const nomData = await nomRes.json();
+    return nomData.display_name ?? null;
+  } catch (error) {
+    console.error('Error en reverseGeocode:', error);
+    return null;
+  }
+}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, Vibration, View } from 'react-native';
 import MapRoute from '../components/MapRoute';
 import { useAuth } from '../context/authContext';
-import { geocodeAddress, getPlaceSuggestions, getRouteORS, LatLng, PlaceSuggestion, RouteResult } from '../services/googleApi';
+import { geocodeAddress, getPlaceSuggestions, getRouteORS, reverseGeocode, LatLng, PlaceSuggestion, RouteResult } from '../services/googleApi';
 import { obtenerCaminoSeguro, RutaSegura } from '../services/safeliApi';
 
 const LockRating = ({ score, maxScore = 5, color }: { score: number, maxScore?: number, color: string }) => {
@@ -74,7 +74,23 @@ export default function HomeScreen() {
     if (distanciaMinima > TOLERANCIA_METROS) alertarDesvio();
   };
 
-  const finalizarViaje = () => { setEnViaje(false); setResumenViaje({ origen: 'Tu ubicación de origen', destino: query || 'Destino', duracion: safeliRoute?.durationText || 'N/D' }); setShowFeedbackModal(true); };
+  const finalizarViaje = async () => {
+    setEnViaje(false);
+    let origenTexto = 'Tu ubicación de origen';
+    try {
+      if (userLocation) {
+        const addr = await reverseGeocode(userLocation.latitude, userLocation.longitude);
+        if (addr) origenTexto = addr;
+      } else {
+        origenTexto = 'Ubicación desconocida';
+      }
+    } catch (e) {
+      console.warn('Reverse geocode failed', e);
+      origenTexto = 'Tu ubicación de origen';
+    }
+    setResumenViaje({ origen: origenTexto, destino: query || 'Destino', duracion: safeliRoute?.durationText || 'N/D' });
+    setShowFeedbackModal(true);
+  };
   const cerrarFeedback = () => { setShowFeedbackModal(false); setRating(0); setComentario(''); };
   const enviarFeedback = () => { console.log('Feedback enviado:', { rating, comentario, resumenViaje }); cerrarFeedback(); };
 
