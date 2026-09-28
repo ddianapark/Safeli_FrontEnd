@@ -1,4 +1,4 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://safeli-api.vercel.app';
+const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'https://safeli-api.vercel.app';
 export interface Coordenadas {
   latitude: number;
   longitude: number;
@@ -34,7 +34,7 @@ function formatDistance(meters: number): string {
 }
 
 export const obtenerCaminoSeguro = async (origen: Coordenadas, destino: Coordenadas, token: string): Promise<RutaSegura> => {
-  const response = await fetch(`${BASE_URL}`, {
+  const response = await fetch(BACKEND_URL + '/api/calcular-camino-seguro', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
     body: JSON.stringify({ origen, destino }),
