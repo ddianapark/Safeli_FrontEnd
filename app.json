@@ -25,7 +25,12 @@
         "googleMaps": {
           "apiKey": "AIzaSyCdskEeFYDGRFyPSdaJizI_Y_8jaDkW_O4"
         }
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.anonymous.safeli"
     },
     "web": {
       "output": "single-page-app",
@@ -54,6 +59,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4424863b-07ee-43b3-9e47-9b619e230412"
+      }
     }
   }
 }

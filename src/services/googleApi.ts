@@ -25,7 +25,7 @@ export interface PlaceSuggestion {
   coordinates?: LatLng;
 }
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'https://safeli-api.vercel.app';
 
 export async function getRouteORS(origin: LatLng, destination: LatLng): Promise<RouteResult | null> {
   try {

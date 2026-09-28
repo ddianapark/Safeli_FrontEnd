@@ -1,5 +1,4 @@
-const BASE_URL = 'http://localhost:3000/api/calcular-camino-seguro';
-
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://safeli-api.vercel.app';
 export interface Coordenadas {
   latitude: number;
   longitude: number;
