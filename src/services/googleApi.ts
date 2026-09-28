@@ -1,7 +1,5 @@
 import { Platform } from "react-native";
 
-declare const EXPO_PUBLIC_GOOGLE_API_KEY: string | undefined;
-
 export interface LatLng {
   latitude: number;
   longitude: number;
@@ -76,7 +74,7 @@ export async function geocodeAddress(address: string): Promise<LatLng | null> {
 // Sugerencias en MOBILE: Google Places Autocomplete API
 async function getSuggestionsGoogle(input: string): Promise<PlaceSuggestion[]> {
   try {
-    const googleApiKey = EXPO_PUBLIC_GOOGLE_API_KEY ?? "";
+    const googleApiKey = process.env.EXPO_PUBLIC_GOOGLE_API_KEY ?? "";
     const url =
       `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
       `?input=${encodeURIComponent(input)}` +
@@ -144,7 +142,7 @@ export async function getPlaceSuggestions(input: string): Promise<PlaceSuggestio
 // Reverse geocoding: devuelve una dirección legible a partir de coordenadas
 export async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
   try {
-    const googleApiKey = EXPO_PUBLIC_GOOGLE_API_KEY ?? "";
+    const googleApiKey = process.env.EXPO_PUBLIC_GOOGLE_API_KEY ?? "";
     // Si tenemos API key, preferimos usar la API de Google en móvil
     if (googleApiKey) {
       const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${googleApiKey}&language=es`;

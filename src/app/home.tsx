@@ -39,6 +39,7 @@ export default function HomeScreen() {
   const [destination, setDestination] = useState<LatLng | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
   const [searching, setSearching] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [safeliRoute, setSafeliRoute] = useState<RutaSegura | null>(null);
   const [googleRoute, setGoogleRoute] = useState<RouteResult | null>(null);
   const [activeRouteType, setActiveRouteType] = useState<'safeli' | 'google'>('safeli');
@@ -51,6 +52,15 @@ export default function HomeScreen() {
   const [comentario, setComentario] = useState('');
   const [resumenViaje, setResumenViaje] = useState({ origen: '', destino: '', duracion: '' });
   const [enViaje, setEnViaje] = useState(false);
+
+  const isLocationInAMBA = (lat: number, lng: number) => {
+    const MIN_LAT = -35.00;
+    const MAX_LAT = -34.15;
+    const MIN_LNG = -59.15;
+    const MAX_LNG = -57.80;
+    return lat >= MIN_LAT && lat <= MAX_LAT && lng >= MIN_LNG && lng <= MAX_LNG;
+  };
+
 
   useEffect(() => { rutaActivaRef.current = safeliRoute; }, [safeliRoute]);
 
@@ -92,8 +102,17 @@ export default function HomeScreen() {
     setShowFeedbackModal(true);
   };
   const cerrarFeedback = () => { setShowFeedbackModal(false); setRating(0); setComentario(''); };
-  const enviarFeedback = () => { console.log('Feedback enviado:', { rating, comentario, resumenViaje }); cerrarFeedback(); };
+  const enviarFeedback = () => {
+    console.log('Feedback enviado:', { rating, comentario, resumenViaje }); 
+      cerrarFeedback(); 
+    setQuery('');
+    setDestination(null);
+    setSafeliRoute(null);
+    setGoogleRoute(null);
+    setEnViaje(false); 
 
+    setAlertMessage('¡Llegaste a tu destino con éxito! Gracias por dejar tu feedback.');
+  };
   useEffect(() => {
     let locationSub: Location.LocationSubscription | null = null;
     (async () => {
@@ -127,14 +146,43 @@ export default function HomeScreen() {
     if (safeliRes.status === 'fulfilled' && safeliRes.value) { setSafeliRoute(safeliRes.value); setActiveRouteType('safeli'); } else { console.warn('Error al obtener la ruta de Safeli'); setSafeliRoute(null); setActiveRouteType('google'); }
   };
 
-  const handleSearch = async () => {
+ const handleSearch = async () => {
     if (!query.trim()) return; Keyboard.dismiss(); setSuggestions([]); setShowSuggestions(false); setSearching(true);
-    try { const geo = await geocodeAddress(query.trim()); if (!geo) { alert('No se encontró la dirección'); setDestination(null); setSafeliRoute(null); setGoogleRoute(null); return; } await resolveAndRouteDual(geo); } catch (e) { console.error(e); alert('Error buscando las rutas'); } finally { setSearching(false); }
+    try { 
+      const geo = await geocodeAddress(query.trim()); 
+      if (!geo) { 
+        setAlertMessage('No se encontró la dirección buscada.');
+        setDestination(null); setSafeliRoute(null); setGoogleRoute(null); return; 
+      } 
+      if (!isLocationInAMBA(geo.latitude, geo.longitude)) {
+        setAlertMessage('Actualmente la navegación segura solo está disponible dentro del AMBA.');
+        return; 
+      }
+      await resolveAndRouteDual(geo); 
+    } catch (e) { 
+      console.error(e); setAlertMessage('Ocurrió un error buscando las rutas.'); 
+    } finally { 
+      setSearching(false); 
+    }
   };
 
   const handleSelectSuggestion = async (suggestion: PlaceSuggestion) => {
     setQuery(suggestion.description); setSuggestions([]); setShowSuggestions(false); Keyboard.dismiss(); setSearching(true);
-    try { const geo = suggestion.coordinates ?? await geocodeAddress(suggestion.description); if (!geo) { alert('No se encontró la dirección'); return; } await resolveAndRouteDual(geo); } catch (e) { console.error(e); alert('Error buscando las rutas'); } finally { setSearching(false); }
+    try { 
+      const geo = suggestion.coordinates ?? await geocodeAddress(suggestion.description); 
+      if (!geo) { 
+        setAlertMessage('No se encontró la dirección buscada.'); return; 
+      } 
+      if (!isLocationInAMBA(geo.latitude, geo.longitude)) {
+        setAlertMessage('Actualmente la navegación segura solo está disponible dentro del AMBA.');
+        return; 
+      }
+      await resolveAndRouteDual(geo); 
+    } catch (e) { 
+      console.error(e); setAlertMessage('Ocurrió un error buscando las rutas.'); 
+    } finally { 
+      setSearching(false); 
+    }
   };
 
   if (loadingLocation) return (<View style={styles.center}><ActivityIndicator size="large" color="#1A3FA8" /></View>);
@@ -193,6 +241,24 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {alertMessage && (
+        <View style={styles.customAlertOverlay}>
+          <View style={styles.customAlertBox}>
+           <Text style={styles.customAlertTitle}>
+              {alertMessage.includes('AMBA') ? 'Fuera de zona' : 'Mensaje'}
+            </Text>
+            <Text style={styles.customAlertText}>{alertMessage}</Text>
+            
+            <TouchableOpacity 
+              style={styles.customAlertButton} 
+              onPress={() => setAlertMessage(null)} 
+            >
+              <Text style={styles.customAlertButtonText}>Aceptar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       <Modal animationType="slide" transparent visible={showFeedbackModal} onRequestClose={cerrarFeedback}>
         <View style={styles.modalOverlay}>
           <View style={styles.feedbackCard}>
@@ -222,7 +288,7 @@ export default function HomeScreen() {
   );
 }
 
-const SEARCH_TOP = Platform.OS === 'web' ? 16 : 48;
+const SEARCH_TOP = 16;
 const SEARCH_BAR_HEIGHT = 44;
 const SUGGESTIONS_TOP = SEARCH_TOP + SEARCH_BAR_HEIGHT + 6;
 
@@ -374,18 +440,65 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
-  // --- ESTILOS DEL MODAL DE FEEDBACK ---
+  customAlertOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+    zIndex: 9999, 
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  customAlertBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 8
+  },
+  customAlertTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1D2DA4', 
+    marginBottom: 10
+  },
+  customAlertText: {
+    fontSize: 15,
+    color: '#4A5568',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24
+  },
+  customAlertButton: {
+    backgroundColor: '#1D2DA4',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center'
+  },
+  customAlertButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600'
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Fondo semitransparente oscuro
-    justifyContent: 'flex-end', // Lo pegamos abajo
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
   },
   feedbackCard: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24, // Espacio extra para el notch de abajo en iPhone
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24, 
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: -4 },
@@ -461,7 +574,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   submitButtonDisabled: {
-    backgroundColor: '#A0ABDB', // Color más claro si está deshabilitado
+    backgroundColor: '#A0ABDB', 
   },
   submitButtonText: {
     color: '#fff',

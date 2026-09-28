@@ -25,13 +25,13 @@ const SAFELI_BLUE = '#1F2B99';
 const INPUT_BG = '#F0F7FF';
 
 export default function ProfileScreen() {
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const { user, logout, updateProfile } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isInfoExpanded, setIsInfoExpanded] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Estado para la imagen local seleccionada por el usuario
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const [profileForm, setProfileForm] = useState({
@@ -57,7 +57,6 @@ export default function ProfileScreen() {
     }
   }, [user]);
 
-  // Imagen computada: muestra la seleccionada localmente, la de la BD o la por defecto
   const fotoPerfil = useMemo(() => {
     if (selectedImage) {
       return { uri: selectedImage };
@@ -68,7 +67,6 @@ export default function ProfileScreen() {
     return require('../../assets/images/default.jpg');
   }, [selectedImage, user?.foto]);
 
-  // Función para abrir la galería / archivos
   const seleccionarFoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -83,12 +81,7 @@ export default function ProfileScreen() {
   };
 
   const handlePlaceholderPress = (nombreBoton: string) => {
-    const mensaje = `La sección de "${nombreBoton}" estará disponible próximamente.`;
-    if (Platform.OS === 'web') {
-      alert(`Módulo en Desarrollo\n\n${mensaje}`);
-    } else {
-      Alert.alert('Módulo en Desarrollo', mensaje);
-    }
+   setAlertMessage(`La sección de "${nombreBoton}" estará disponible próximamente.`);
   };
 
   const validateProfile = () => {
@@ -129,15 +122,12 @@ export default function ProfileScreen() {
         formData.append('nroTelefono', profileForm.nroTelefono.trim());
       }
 
-      // 💻 PROCESAMIENTO DE IMAGEN
       if (selectedImage && !selectedImage.startsWith('http')) {
         if (Platform.OS === 'web') {
-          // Web (PC): Obtener Blob desde el URI de la vista previa
           const res = await fetch(selectedImage);
           const blob = await res.blob();
           formData.append('foto', blob, 'perfil.jpg');
         } else {
-          // Móvil
           const fileName = selectedImage.split('/').pop() || 'perfil.jpg';
           const match = /\.(\w+)$/.exec(fileName);
           const type = match ? `image/${match[1]}` : 'image/jpeg';
@@ -150,10 +140,8 @@ export default function ProfileScreen() {
         }
       }
 
-      // Envío al servidor
       await updateProfile(formData as any);
 
-      // Limpiamos el estado temporal de la imagen guardada
       setSelectedImage(null);
       setIsEditing(false);
 
@@ -175,269 +163,200 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.topBlueHeader} />
-
-      <View style={styles.logoContainer}>
-        <Image source={require('../../assets/images/logotipo_color.png')} style={styles.logo} />
-      </View>
-
-      <TouchableOpacity
-        style={styles.settingsGear}
-        onPress={() => handlePlaceholderPress('Configuración Avanzada')}
-        activeOpacity={0.7}
+    <View style={styles.container}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
       >
-        <Ionicons name="settings-outline" size={32} color={SAFELI_BLUE} />
-      </TouchableOpacity>
-
-      {/* 📷 FOTO DE PERFIL */}
-      <View style={styles.avatarContainer}>
-        <View style={styles.avatarCircle}>
-          <Image source={fotoPerfil} style={styles.avatarImage} />
-
-          <TouchableOpacity
-            style={styles.cameraBadge}
-            onPress={seleccionarFoto}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="camera" size={20} color="#fff" />
-          </TouchableOpacity>
+        <View style={styles.logoContainer}>
+          <Image source={require('../../assets/images/logotipo_color.png')} style={styles.logo} />
         </View>
 
-        {/* 🔘 BOTÓN QUE APARECE SOLO AL ELEGIR UNA NUEVA FOTO */}
-        {selectedImage && (
-          <View style={styles.photoActionsContainer}>
-            <TouchableOpacity
-              style={styles.savePhotoButton}
-              onPress={handleSaveProfile}
-              disabled={isSavingProfile}
-            >
-              <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-              <Text style={styles.savePhotoButtonText}>
-                {isSavingProfile ? 'Guardando foto...' : 'Guardar nueva foto'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelPhotoButton}
-              onPress={() => setSelectedImage(null)}
-              disabled={isSavingProfile}
-            >
-              <Ionicons name="close-circle-outline" size={18} color="#E53E3E" />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.usernameRow}>
-        <Text style={styles.usernameText}>
-          {user?.username || 'Usuario Safeli'}
-        </Text>
-      </View>
-
-      {/* Información del usuario */}
-      <View style={styles.accordionContainer}>
         <TouchableOpacity
-          style={styles.accordionHeader}
-          onPress={() => {
-            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-            setIsInfoExpanded((prev) => !prev);
-          }}
-          activeOpacity={0.8}
+          style={styles.settingsGear}
+          onPress={() => handlePlaceholderPress('Configuración Avanzada')}
+          activeOpacity={0.7}
         >
-          <View style={styles.accordionHeaderLeft}>
-            <Ionicons name="person-circle-outline" size={22} color={SAFELI_BLUE} />
-            <Text style={styles.accordionHeaderText}>Información personal</Text>
-          </View>
-          <View style={styles.accordionHeaderRight}>
+          <Ionicons name="settings-outline" size={32} color={SAFELI_BLUE} />
+        </TouchableOpacity>
+
+        <View style={styles.avatarContainer}>
+          <View style={styles.avatarCircle}>
+            <Image source={fotoPerfil} style={styles.avatarImage} />
+
             <TouchableOpacity
-              activeOpacity={0.6}
-              onPress={() => {
-                if (isEditing) {
-                  setIsEditing(false);
-                  setSelectedImage(null);
-                  if (user) {
-                    setProfileForm({
-                      firstName: user.firstName ?? (user as any).nombre ?? '',
-                      lastName: user.lastName ?? (user as any).apellido ?? '',
-                      username: user.username ?? '',
-                      email: user.email ?? '',
-                      birthDate: user.birthDate ?? (user as any).fechaNacimiento ?? '',
-                      nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
-                    });
-                  }
-                } else {
-                  setIsEditing(true);
-                  if (!isInfoExpanded) {
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                    setIsInfoExpanded(true);
-                  }
-                }
-              }}
+              style={styles.cameraBadge}
+              onPress={seleccionarFoto}
+              activeOpacity={0.8}
             >
-              <Ionicons name={isEditing ? 'close' : 'pencil'} size={16} color="#000" style={styles.pencilIcon} />
+              <Ionicons name="camera" size={20} color="#fff" />
             </TouchableOpacity>
-            <Ionicons
-              name={isInfoExpanded ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={SAFELI_BLUE}
-              style={{ marginLeft: 8 }}
-            />
           </View>
-        </TouchableOpacity>
 
-        {isInfoExpanded && (
-          <View style={styles.fieldsContainer}>
-            {isEditing ? (
-              <>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    value={profileForm.firstName}
-                    placeholder="Nombre"
-                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, firstName: text }))}
-                  />
-                  {profileErrors.firstName ? <Text style={styles.errorText}>{profileErrors.firstName}</Text> : null}
-                </View>
+          {selectedImage && (
+            <View style={styles.photoActionsContainer}>
+              <TouchableOpacity
+                style={styles.savePhotoButton}
+                onPress={handleSaveProfile}
+                disabled={isSavingProfile}
+              >
+                <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                <Text style={styles.savePhotoButtonText}>
+                  {isSavingProfile ? 'Guardando foto...' : 'Guardar nueva foto'}
+                </Text>
+              </TouchableOpacity>
 
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    value={profileForm.lastName}
-                    placeholder="Apellido"
-                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, lastName: text }))}
-                  />
-                  {profileErrors.lastName ? <Text style={styles.errorText}>{profileErrors.lastName}</Text> : null}
-                </View>
+              <TouchableOpacity
+                style={styles.cancelPhotoButton}
+                onPress={() => setSelectedImage(null)}
+                disabled={isSavingProfile}
+              >
+                <Ionicons name="close-circle-outline" size={18} color="#E53E3E" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    value={profileForm.username}
-                    placeholder="Nombre de usuario"
-                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, username: text }))}
-                  />
-                  {profileErrors.username ? <Text style={styles.errorText}>{profileErrors.username}</Text> : null}
-                </View>
+        <View style={styles.usernameRow}>
+          <Text style={styles.usernameText}>
+            {user?.username || 'Usuario Safeli'}
+          </Text>
+        </View>
 
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    value={profileForm.email}
-                    placeholder="Email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, email: text }))}
-                  />
-                  {profileErrors.email ? <Text style={styles.errorText}>{profileErrors.email}</Text> : null}
-                </View>
+        <View style={styles.accordionContainer}>
+          <TouchableOpacity
+            style={styles.accordionHeader}
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setIsInfoExpanded((prev) => !prev);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.accordionHeaderLeft}>
+              <Ionicons name="person-circle-outline" size={22} color={SAFELI_BLUE} />
+              <Text style={styles.accordionHeaderText}>Información personal</Text>
+            </View>
+            <View style={styles.accordionHeaderRight}>
+              <TouchableOpacity
+                activeOpacity={0.6}
+                onPress={() => {
+                  if (isEditing) {
+                    setIsEditing(false);
+                    setSelectedImage(null);
+                    if (user) {
+                      setProfileForm({
+                        firstName: user.firstName ?? (user as any).nombre ?? '',
+                        lastName: user.lastName ?? (user as any).apellido ?? '',
+                        username: user.username ?? '',
+                        email: user.email ?? '',
+                        birthDate: user.birthDate ?? (user as any).fechaNacimiento ?? '',
+                        nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
+                      });
+                    }
+                  } else {
+                    setIsEditing(true);
+                    if (!isInfoExpanded) {
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      setIsInfoExpanded(true);
+                    }
+                  }
+                }}
+              >
+                <Ionicons name={isEditing ? 'close' : 'pencil'} size={16} color="#000" style={styles.pencilIcon} />
+              </TouchableOpacity>
+              <Ionicons
+                name={isInfoExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={SAFELI_BLUE}
+                style={{ marginLeft: 8 }}
+              />
+            </View>
+          </TouchableOpacity>
 
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    value={profileForm.birthDate}
-                    placeholder="Fecha de nacimiento (YYYY-MM-DD)"
-                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, birthDate: text }))}
-                  />
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    value={profileForm.nroTelefono}
-                    placeholder="Teléfono"
-                    keyboardType="number-pad"
-                    onChangeText={(text) => setProfileForm((prev) => ({ ...prev, nroTelefono: text }))}
-                  />
-                  {profileErrors.nroTelefono ? <Text style={styles.errorText}>{profileErrors.nroTelefono}</Text> : null}
-                </View>
-
-                <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} disabled={isSavingProfile}>
-                  {isSavingProfile ? <Text style={styles.saveButtonText}>Guardando...</Text> : <Text style={styles.saveButtonText}>Guardar cambios</Text>}
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Nombre</Text>
-                  <Text style={styles.infoValue}>
-                    {user?.firstName || (user as any)?.nombre || 'Sin completar'}
-                  </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Apellido</Text>
-                  <Text style={styles.infoValue}>
-                    {user?.lastName || (user as any)?.apellido || 'Sin completar'}
-                  </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Nombre de usuario</Text>
-                  <Text style={styles.infoValue}>{user?.username || 'Sin completar'}</Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Email</Text>
-                  <Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Fecha de nacimiento</Text>
-                  <Text style={styles.infoValue}>
-                    {user?.birthDate || (user as any)?.fechaNacimiento || 'Sin completar'}
-                  </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Teléfono</Text>
-                  <Text style={styles.infoValue}>
-                    {user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}
-                  </Text>
-                </View>
-
-                <View style={styles.infoCard}>
-                  <Text style={styles.infoLabel}>Contraseña</Text>
-                  <Text style={styles.infoValue}>••••••••</Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.changePasswordOption}
-                  onPress={() => router.push('/change-password')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.changePasswordLeft}>
-                    <Ionicons name="key-outline" size={18} color={SAFELI_BLUE} />
-                    <Text style={styles.changePasswordText}>Cambiar contraseña</Text>
+          {isInfoExpanded && (
+            <View style={styles.fieldsContainer}>
+              {isEditing ? (
+                <>
+                  <View style={styles.inputWrapper}>
+                    <TextInput style={styles.input} value={profileForm.firstName} placeholder="Nombre" onChangeText={(text) => setProfileForm((prev) => ({ ...prev, firstName: text }))} />
+                    {profileErrors.firstName ? <Text style={styles.errorText}>{profileErrors.firstName}</Text> : null}
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={SAFELI_BLUE} />
-                </TouchableOpacity>
-              </>
-            )}
+                  <View style={styles.inputWrapper}>
+                    <TextInput style={styles.input} value={profileForm.lastName} placeholder="Apellido" onChangeText={(text) => setProfileForm((prev) => ({ ...prev, lastName: text }))} />
+                    {profileErrors.lastName ? <Text style={styles.errorText}>{profileErrors.lastName}</Text> : null}
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput style={styles.input} value={profileForm.username} placeholder="Nombre de usuario" onChangeText={(text) => setProfileForm((prev) => ({ ...prev, username: text }))} />
+                    {profileErrors.username ? <Text style={styles.errorText}>{profileErrors.username}</Text> : null}
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput style={styles.input} value={profileForm.email} placeholder="Email" keyboardType="email-address" autoCapitalize="none" onChangeText={(text) => setProfileForm((prev) => ({ ...prev, email: text }))} />
+                    {profileErrors.email ? <Text style={styles.errorText}>{profileErrors.email}</Text> : null}
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput style={styles.input} value={profileForm.birthDate} placeholder="Fecha de nacimiento (YYYY-MM-DD)" onChangeText={(text) => setProfileForm((prev) => ({ ...prev, birthDate: text }))} />
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput style={styles.input} value={profileForm.nroTelefono} placeholder="Teléfono" keyboardType="number-pad" onChangeText={(text) => setProfileForm((prev) => ({ ...prev, nroTelefono: text }))} />
+                    {profileErrors.nroTelefono ? <Text style={styles.errorText}>{profileErrors.nroTelefono}</Text> : null}
+                  </View>
+                  <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} disabled={isSavingProfile}>
+                    {isSavingProfile ? <Text style={styles.saveButtonText}>Guardando...</Text> : <Text style={styles.saveButtonText}>Guardar cambios</Text>}
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={styles.infoCard}><Text style={styles.infoLabel}>Nombre</Text><Text style={styles.infoValue}>{user?.firstName || (user as any)?.nombre || 'Sin completar'}</Text></View>
+                  <View style={styles.infoCard}><Text style={styles.infoLabel}>Apellido</Text><Text style={styles.infoValue}>{user?.lastName || (user as any)?.apellido || 'Sin completar'}</Text></View>
+                  <View style={styles.infoCard}><Text style={styles.infoLabel}>Nombre de usuario</Text><Text style={styles.infoValue}>{user?.username || 'Sin completar'}</Text></View>
+                  <View style={styles.infoCard}><Text style={styles.infoLabel}>Email</Text><Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text></View>
+                  <View style={styles.infoCard}><Text style={styles.infoLabel}>Fecha de nacimiento</Text><Text style={styles.infoValue}>{user?.birthDate || (user as any)?.fechaNacimiento || 'Sin completar'}</Text></View>
+                  <View style={styles.infoCard}><Text style={styles.infoLabel}>Teléfono</Text><Text style={styles.infoValue}>{user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}</Text></View>
+                  <View style={styles.infoCard}><Text style={styles.infoLabel}>Contraseña</Text><Text style={styles.infoValue}>••••••••</Text></View>
+                  <TouchableOpacity style={styles.changePasswordOption} onPress={() => router.push('/change-password')} activeOpacity={0.7}>
+                    <View style={styles.changePasswordLeft}><Ionicons name="key-outline" size={18} color={SAFELI_BLUE} /><Text style={styles.changePasswordText}>Cambiar contraseña</Text></View>
+                    <Ionicons name="chevron-forward" size={18} color={SAFELI_BLUE} />
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.sectionTitle}>Ajustes</Text>
+
+        <View style={styles.buttonsContainer}>
+          <TouchableOpacity style={styles.pillButton} onPress={() => handlePlaceholderPress('Reportes')} activeOpacity={0.7}>
+            <Text style={styles.pillButtonText}>Reportes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.pillButton} onPress={() => handlePlaceholderPress('Orbit')} activeOpacity={0.7}>
+            <Text style={styles.pillButtonText}>Orbit</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.pillButton} onPress={logout} activeOpacity={0.7}>
+            <Text style={styles.pillButtonText}>Cerrar sesión</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {alertMessage && (
+        <View style={styles.customAlertOverlay}>
+          <View style={styles.customAlertBox}>
+            <Text style={styles.customAlertTitle}>Módulo en Desarrollo</Text>
+            <Text style={styles.customAlertText}>{alertMessage}</Text>
+            
+            <TouchableOpacity 
+              style={styles.customAlertButton} 
+              onPress={() => setAlertMessage(null)} 
+            >
+              <Text style={styles.customAlertButtonText}>Aceptar</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
-
-      <Text style={styles.sectionTitle}>Ajustes</Text>
-
-      <View style={styles.buttonsContainer}>
-        <TouchableOpacity style={styles.pillButton} onPress={() => handlePlaceholderPress('Destinos')} activeOpacity={0.7}>
-          <Text style={styles.pillButtonText}>Destinos</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.pillButton} onPress={() => handlePlaceholderPress('Orbit')} activeOpacity={0.7}>
-          <Text style={styles.pillButtonText}>Orbit</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.pillButton} onPress={logout} activeOpacity={0.7}>
-          <Text style={styles.pillButtonText}>Cerrar sesión</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -449,55 +368,13 @@ const styles = StyleSheet.create({
   logo: { width: 200, height: 60, resizeMode: 'contain' },
   settingsGear: { alignSelf: 'flex-start', marginLeft: 28, marginTop: 5, marginBottom: 10 },
   avatarContainer: { alignItems: 'center', marginVertical: 15 },
-  avatarCircle: { 
-    width: 170, 
-    height: 170, 
-    borderRadius: 85, 
-    borderWidth: 2, 
-    borderColor: '#1A3FA8', 
-    backgroundColor: '#E0E6ED', 
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative'  
-  },
+  avatarCircle: { width: 170, height: 170, borderRadius: 85, borderWidth: 2, borderColor: '#1A3FA8', backgroundColor: '#E0E6ED', justifyContent: 'center', alignItems: 'center', position: 'relative' },
   avatarImage: { width: 166, height: 166, borderRadius: 83 },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: '#1A3FA8',
-    padding: 10,
-    borderRadius: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  photoActionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-  },
-  savePhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: SAFELI_BLUE,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  savePhotoButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  cancelPhotoButton: {
-    backgroundColor: '#FEE2E2',
-    padding: 10,
-    borderRadius: 20,
-  },
+  cameraBadge: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#1A3FA8', padding: 10, borderRadius: 20, elevation: 3, shadowColor: '#000', shadowOpacity: 0.2, shadowOffset: { width: 0, height: 2 } },
+  photoActionsContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  savePhotoButton: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: SAFELI_BLUE, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
+  savePhotoButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  cancelPhotoButton: { backgroundColor: '#FEE2E2', padding: 10, borderRadius: 20 },
   usernameRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 20 },
   usernameText: { fontSize: 18, fontWeight: '600', color: '#333' },
   pencilIcon: { marginTop: 2 },
@@ -515,22 +392,59 @@ const styles = StyleSheet.create({
   errorText: { color: '#E53E3E', fontSize: 12, marginLeft: 4 },
   saveButton: { backgroundColor: SAFELI_BLUE, borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   saveButtonText: { color: '#fff', fontWeight: '700' },
-  changePasswordOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: INPUT_BG,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#DCE9F7',
-    marginTop: 4,
-  },
+  changePasswordOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: INPUT_BG, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: '#DCE9F7', marginTop: 4 },
   changePasswordLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   changePasswordText: { fontSize: 14, fontWeight: '700', color: SAFELI_BLUE },
   sectionTitle: { fontSize: 20, fontWeight: '700', color: '#000', textAlign: 'center', marginBottom: 16 },
   buttonsContainer: { paddingHorizontal: 60, gap: 14, alignItems: 'center', marginBottom: 16 },
   pillButton: { width: '100%', maxWidth: 260, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: '#1A3FA8', backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.03, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   pillButtonText: { color: '#1A3FA8', fontSize: 16, fontWeight: '600' },
+  customAlertOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
+    zIndex: 9999, 
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  customAlertBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 8
+  },
+  customAlertTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1D2DA4', 
+    marginBottom: 10
+  },
+  customAlertText: {
+    fontSize: 15,
+    color: '#4A5568',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24
+  },
+  customAlertButton: {
+    backgroundColor: '#1D2DA4',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center'
+  },
+  customAlertButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600'
+  }
 });

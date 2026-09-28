@@ -90,11 +90,12 @@ function mapBackendUser(bu: any): User {
   } as User;
 }
 
-function mapBackendAuthResponse(raw: BackendAuthResponse): AuthResponse {
+function mapBackendAuthResponse(raw: any): AuthResponse {
+  const userData = raw.user ?? raw.usuario ?? raw.data ?? raw;
   return {
-    accessToken: raw.accessToken,
+    accessToken: raw.accessToken ?? raw.token,
     refreshToken: raw.refreshToken,
-    user: mapBackendUser(raw.user),
+    user: mapBackendUser(userData),
   };
 }
 

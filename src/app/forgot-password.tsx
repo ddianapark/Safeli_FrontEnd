@@ -105,8 +105,6 @@ export default function ForgotPasswordScreen() {
           )}
         </TouchableOpacity>
       </View>
-
-      <View style={styles.footer} />
     </ScrollView>
   );
 }
