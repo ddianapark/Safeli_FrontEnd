@@ -176,7 +176,7 @@ export default function SignUpScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Image
-          source={require('../../assets/images/safeli.png')} // TODO: adjust path to your logo
+          source={require('../../assets/images/safeli.png')}
           style={styles.logo}
           resizeMode="contain"
         />
