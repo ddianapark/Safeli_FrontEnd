@@ -5,10 +5,11 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "bundle:android": "npx expo export --platform android --output-dir dist"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -55,6 +56,8 @@
     "vector-icons": "^0.1.0"
   },
   "devDependencies": {
+    "@react-native-community/cli": "latest",
+    "@react-native/metro-config": "^0.87.1",
     "@types/leaflet": "^1.9.21",
     "@types/react": "~19.2.2",
     "typescript": "~5.9.2"
