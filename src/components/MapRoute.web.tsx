@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, GeoJSON, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, GeoJSON, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { LatLng, RouteResult } from '../services/googleApi';
@@ -68,6 +68,19 @@ interface Props {
   googleRoute: RouteResult | null;
   activeRouteType: 'safeli' | 'google';
   onSelectRoute: (type: 'safeli' | 'google') => void;
+  onMapPress?: (location: LatLng) => void; // <-- Nueva prop
+}
+
+// Componente auxiliar para registrar el evento click en Leaflet
+function MapClickHandler({ onMapPress }: { onMapPress?: (location: LatLng) => void }) {
+  useMapEvents({
+    click(e) {
+      if (onMapPress) {
+        onMapPress({ latitude: e.latlng.lat, longitude: e.latlng.lng });
+      }
+    },
+  });
+  return null;
 }
 
 export default function MapRouteWeb({
@@ -76,7 +89,8 @@ export default function MapRouteWeb({
   safeliRoute,
   googleRoute,
   activeRouteType,
-  onSelectRoute
+  onSelectRoute,
+  onMapPress
 }: Props) {
   
   // Puntos Safeli en formato LatLng
@@ -104,6 +118,8 @@ export default function MapRouteWeb({
       style={{ width: '100%', height: '100%' }}
       zoomControl={true}
     >
+      <MapClickHandler onMapPress={onMapPress} />
+
       <TileLayer
         attribution='&copy; OpenStreetMap'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

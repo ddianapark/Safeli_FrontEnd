@@ -1,162 +1,106 @@
-import { RelativePathString, router } from 'expo-router';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { authEvents } from '../app/apiClient';
-import { authService } from '../services/authService';
-import { tokenStorage } from '../services/tokenStorage';
-import { AuthContextType, ChangePasswordRequest, LoginRequest, MapRequest, SignUpRequest, UpdateProfileRequest, User } from '../types/auth_types';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
-const AuthContext = createContext<AuthContextType | null>(null);
+interface User {
+  id: string;
+  email: string;
+  nombre?: string;
+}
+
+interface AuthContextData {
+  user: User | null;
+  isLoading: boolean;
+  signIn: (tokens: { accessToken: string; refreshToken: string }, user: User) => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
+// Helper seguro para persistencia multiplataforma
+export const tokenStorage = {
+  getAccessToken: async (): Promise<string | null> => {
+    if (Platform.OS === 'web') return localStorage.getItem('safeli_access_token');
+    return await SecureStore.getItemAsync('safeli_access_token');
+  },
+  getRefreshToken: async (): Promise<string | null> => {
+    if (Platform.OS === 'web') return localStorage.getItem('safeli_refresh_token');
+    return await SecureStore.getItemAsync('safeli_refresh_token');
+  },
+  saveTokens: async (accessToken: string, refreshToken: string): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem('safeli_access_token', accessToken);
+      localStorage.setItem('safeli_refresh_token', refreshToken);
+    } else {
+      await SecureStore.setItemAsync('safeli_access_token', accessToken);
+      await SecureStore.setItemAsync('safeli_refresh_token', refreshToken);
+    }
+  },
+  clearTokens: async (): Promise<void> => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem('safeli_access_token');
+      localStorage.removeItem('safeli_refresh_token');
+      localStorage.removeItem('safeli_user');
+    } else {
+      await SecureStore.deleteItemAsync('safeli_access_token');
+      await SecureStore.deleteItemAsync('safeli_refresh_token');
+      await SecureStore.deleteItemAsync('safeli_user');
+    }
+  },
+  getUser: async (): Promise<User | null> => {
+    const raw = Platform.OS === 'web'
+      ? localStorage.getItem('safeli_user')
+      : await SecureStore.getItemAsync('safeli_user');
+    return raw ? JSON.parse(raw) : null;
+  },
+  saveUser: async (user: User): Promise<void> => {
+    const stringified = JSON.stringify(user);
+    if (Platform.OS === 'web') {
+      localStorage.setItem('safeli_user', stringified);
+    } else {
+      await SecureStore.setItemAsync('safeli_user', stringified);
+    }
+  }
+};
+
+const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // ─── Force-logout listener ──────────────────────────────────────────────────
   useEffect(() => {
-    const unsubscribe = authEvents.onForceLogout(async () => {
-      setUser(null);
-      router.replace('/');
-    });
-    return unsubscribe;
-  }, []);
-
-  // ─── Bootstrap ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const bootstrapAuth = async () => {
+    const loadSession = async () => {
       try {
-        const accessToken = await tokenStorage.getAccessToken();
-
-        if (!accessToken) {
-          await tokenStorage.clearTokens();
-          setUser(null);
-          return;
+        const savedUser = await tokenStorage.getUser();
+        const token = await tokenStorage.getAccessToken();
+        if (savedUser && token) {
+          setUser(savedUser);
         }
-        const freshUser = await authService.getMe();
-        setUser(freshUser);
-        setToken(accessToken);
-
-        await tokenStorage.saveUser(JSON.stringify(freshUser));
-      } catch {
-        await tokenStorage.clearTokens();
-        await tokenStorage.clearRememberMe();
-        await tokenStorage.clearUser();
-        setUser(null);
-        setToken(null);
+      } catch (error) {
+        console.error('Error al restaurar la sesión:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    bootstrapAuth();
+    loadSession();
   }, []);
 
-  const refreshUser = useCallback(async (): Promise<void> => {
-    try {
-      const freshUser = await authService.getMe();
-      setUser(freshUser);
-      await tokenStorage.saveUser(JSON.stringify(freshUser));
-    } catch {
-      await tokenStorage.clearTokens();
-      await tokenStorage.clearRememberMe();
-      await tokenStorage.clearUser();
-      setUser(null);
-      router.replace('/');
-    }
-  }, []);
+  const signIn = async (tokens: { accessToken: string; refreshToken: string }, userData: User) => {
+    await tokenStorage.saveTokens(tokens.accessToken, tokens.refreshToken);
+    await tokenStorage.saveUser(userData);
+    setUser(userData);
+  };
 
-  const login = useCallback(async (data: LoginRequest): Promise<void> => {
-    const response = await authService.login(data);
-    await tokenStorage.saveTokens(response.accessToken, response.refreshToken);
-    await tokenStorage.saveUser(JSON.stringify(response.user));
-    await tokenStorage.setRememberMe(data.rememberMe);
-    setUser(response.user);
-    setToken(response.accessToken);
-    router.replace('/home' as RelativePathString);
-  }, []);
-
-  const signUp = useCallback(async (data: SignUpRequest): Promise<void> => {
-    await authService.signUp(data);
+  const signOut = async () => {
     await tokenStorage.clearTokens();
-    await tokenStorage.clearRememberMe();
-    await tokenStorage.clearUser();
     setUser(null);
-    setToken(null);
-    router.replace('/' as RelativePathString);
-  }, []);
-
-  const logout = useCallback(async (): Promise<void> => {
-    try {
-      const refreshToken = await tokenStorage.getRefreshToken();
-      if (refreshToken) {
-        await authService.logout(refreshToken);
-      }
-    } catch {
-    } finally {
-      await tokenStorage.clearTokens();
-      await tokenStorage.clearRememberMe();
-      await tokenStorage.clearUser();
-      setUser(null);
-      setToken(null);
-      router.replace('/');
-    }
-  }, []);
-
-const updateProfile = useCallback(async (data: UpdateProfileRequest): Promise<User> => {
-    const updatedUser = await authService.updateProfile(data);
-
-    // Unimos los datos anteriores con los nuevos para NO perder propiedades clave
-    setUser((prevUser) => {
-      const mergedUser = {
-        ...prevUser,
-        ...updatedUser,
-      } as User;
-
-      // Guardamos la versión completa en el almacenamiento local
-      tokenStorage.saveUser(JSON.stringify(mergedUser)).catch(console.error);
-      return mergedUser;
-    });
-
-    return updatedUser;
-  }, []);
-
-  const changePassword = useCallback(async (data: ChangePasswordRequest): Promise<void> => {
-    await authService.changePassword(data);
-  }, []);
-
-  const map = useCallback(async (data: MapRequest): Promise<void> => {
-    try {
-      await (authService as any).map(data);
-    } catch (error) {
-      console.error('Error en map:', error);
-    }
-  }, []);
+  };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        signUp,
-        logout,
-        map,
-        refreshUser,
-        updateProfile,
-        changePassword,
-        token,
-      }}
-    >
+    <AuthContext.Provider value={{ user, isLoading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);

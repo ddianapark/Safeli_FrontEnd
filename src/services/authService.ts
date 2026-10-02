@@ -1,5 +1,4 @@
 import { AxiosError } from 'axios';
-import apiClient from '../app/apiClient';
 import {
   AuthResponse,
   BackendAuthResponse,
@@ -16,6 +15,7 @@ import {
   User,
   VerifyCodeRequest,
 } from '../types/auth_types';
+import apiClient from './apiClient';
 
 function parseBackendError(error: unknown): Error {
   if (error instanceof AxiosError) {

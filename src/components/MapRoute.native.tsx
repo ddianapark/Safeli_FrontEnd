@@ -12,6 +12,7 @@ interface Props {
   googleRoute: RouteResult | null;
   activeRouteType: 'safeli' | 'google';
   onSelectRoute: (type: 'safeli' | 'google') => void;
+  onMapPress?: (location: LatLng) => void; // <-- Nueva prop
 }
 
 export default function MapRouteNative({
@@ -20,7 +21,8 @@ export default function MapRouteNative({
   safeliRoute,
   googleRoute,
   activeRouteType,
-  onSelectRoute
+  onSelectRoute,
+  onMapPress
 }: Props) {
   const mapRef = useRef<MapView>(null);
 
@@ -63,7 +65,13 @@ export default function MapRouteNative({
         longitudeDelta: 0.05,
       }}
       showsUserLocation
+      onPress={(e) => {
+        if (onMapPress) {
+          onMapPress(e.nativeEvent.coordinate);
+        }
+      }}
     >
+      
       {destination && (
         <Marker coordinate={destination} title="Destino" pinColor="#E63946" />
       )}
