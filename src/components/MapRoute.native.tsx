@@ -1,8 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { StyleSheet } from 'react-native';
-import { LatLng, RouteResult } from '../services/googleApi';
-import { RutaSegura } from '../services/safeliApi';
+import type { LatLng, RouteResult, RutaSegura } from '../types/route_types';
 import { splitRouteByProgress } from '../services/routeUtils';
 
 interface Props {

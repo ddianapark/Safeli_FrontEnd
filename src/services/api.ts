@@ -1,37 +1,57 @@
-import { request } from './apiClient';
-import { LatLng, PlaceSuggestion, RouteResult } from './googleApi';
-import { RutaSegura } from './safeliApi';
+import type { LatLng, PlaceSuggestion, RouteResult, RutaSegura } from '../types/route_types';
+import { apiClient } from './apiClient';
+
+export type { LatLng, PlaceSuggestion, RouteResult, RutaSegura } from '../types/route_types';
+
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+interface RequestOptions {
+  method?: HttpMethod;
+  body?: unknown;
+}
+
+async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const { method = 'GET', body } = options;
+
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
+  const response = await apiClient.request<T>({
+    url: endpoint,
+    method,
+    data: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
+    headers: isFormData ? undefined : { 'Content-Type': 'application/json' },
+  });
+
+  return response.data;
+}
 
 export const api = {
   // =========================================================================
   // AUTENTICACIÓN & USUARIOS
   // =========================================================================
   auth: {
-    login: (credentials: { email: string; pass: string }) => 
+    login: (credentials: { email: string; pass: string }) =>
       request<{ token: string; user: any }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify(credentials),
-        requiresAuth: false,
+        body: credentials,
       }),
 
-    register: (userData: any) => 
+    register: (userData: any) =>
       request<{ message: string }>('/auth/register', {
         method: 'POST',
-        body: JSON.stringify(userData),
-        requiresAuth: false,
+        body: userData,
       }),
 
     verifyCode: (email: string, code: string) =>
       request('/auth/verify-code', {
         method: 'POST',
-        body: JSON.stringify({ email, code }),
-        requiresAuth: false,
+        body: { email, code },
       }),
 
     changePassword: (data: { currentPass: string; newPass: string }) =>
       request('/auth/change-password', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: data,
       }),
   },
 
@@ -42,13 +62,13 @@ export const api = {
     obtenerCaminoSeguro: (origin: LatLng, destination: LatLng) =>
       request<RutaSegura>('/routes/safe', {
         method: 'POST',
-        body: JSON.stringify({ origin, destination }),
+        body: { origin, destination },
       }),
 
     enviarFeedback: (feedbackData: { rating: number; comentario: string; resumenViaje: any }) =>
       request('/feedback', {
         method: 'POST',
-        body: JSON.stringify(feedbackData),
+        body: feedbackData,
       }),
   },
 
@@ -59,23 +79,16 @@ export const api = {
     getRouteORS: (origin: LatLng, destination: LatLng) =>
       request<RouteResult>('/routes/ors', {
         method: 'POST',
-        body: JSON.stringify({ origin, destination }),
-        requiresAuth: false,
+        body: { origin, destination },
       }),
 
     geocodeAddress: (address: string) =>
-      request<LatLng | null>(`/geocode?address=${encodeURIComponent(address)}`, {
-        requiresAuth: false,
-      }),
+      request<LatLng | null>(`/geocode?address=${encodeURIComponent(address)}`),
 
     reverseGeocode: (lat: number, lng: number) =>
-      request<string>(`/geocode/reverse?lat=${lat}&lng=${lng}`, {
-        requiresAuth: false,
-      }),
+      request<string>(`/geocode/reverse?lat=${lat}&lng=${lng}`),
 
     getPlaceSuggestions: (text: string) =>
-      request<PlaceSuggestion[]>(`/places/autocomplete?query=${encodeURIComponent(text)}`, {
-        requiresAuth: false,
-      }),
+      request<PlaceSuggestion[]>(`/places/autocomplete?query=${encodeURIComponent(text)}`),
   },
 };

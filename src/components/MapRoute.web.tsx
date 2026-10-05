@@ -2,8 +2,7 @@ import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, GeoJSON, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { LatLng, RouteResult } from '../services/googleApi';
-import { RutaSegura } from '../services/safeliApi';
+import type { LatLng, RouteResult, RutaSegura } from '../types/route_types';
 import { splitRouteByProgress } from '../services/routeUtils';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
