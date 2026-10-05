@@ -15,7 +15,7 @@ import {
   User,
   VerifyCodeRequest,
 } from '../types/auth_types';
-import apiClient from './apiClient';
+import { apiClient } from './apiClient';
 
 function parseBackendError(error: unknown): Error {
   if (error instanceof AxiosError) {

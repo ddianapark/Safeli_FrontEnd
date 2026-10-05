@@ -13,10 +13,9 @@ import {
 } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { useAuth } from '../context/authContext';
-import { apiClient } from '../services/apiClient';
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const { login } = useAuth();
   const params = useLocalSearchParams<{ successMessage?: string | string[] }>();
 
   const [username, setUsername] = useState('');
@@ -41,7 +40,7 @@ export default function LoginScreen() {
 
   const validate = (): boolean => {
     const newErrors: { username?: string; password?: string } = {};
-    if (!username.trim()) newErrors.username = 'Ingresá tu usuario o correo';
+    if (!username.trim()) newErrors.username = 'Ingresá tu usuario';
     if (!password) newErrors.password = 'Ingresá tu contraseña';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -51,18 +50,11 @@ export default function LoginScreen() {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      const response = await apiClient.post('/auth/login', {
-        email: username.trim(),
-        password,
-      });
-
-      const { accessToken, refreshToken, user } = response.data;
-      await signIn({ accessToken, refreshToken }, user);
-      
-      router.replace('/home');
-    } catch (error: any) {
+      await login({ username: username.trim(), password, rememberMe });
+    } catch (error: unknown) {
       console.error('Login error', error);
-      const message = error.response?.data?.message || 'Error al iniciar sesión. Verificá tus credenciales.';
+      const message =
+        error instanceof Error ? error.message : 'Error al iniciar sesión. Verificá tus credenciales.';
       setErrors((prev) => ({ ...prev, password: message }));
       Alert.alert('Error al iniciar sesión', message);
     } finally {
@@ -92,7 +84,7 @@ export default function LoginScreen() {
         <View style={styles.inputWrapper}>
           <TextInput
             style={[styles.input, errors.username ? styles.inputError : null]}
-            placeholder="Correo electrónico"
+            placeholder="Usuario"
             placeholderTextColor="#A0AEC0"
             value={username}
             onChangeText={(text) => {
