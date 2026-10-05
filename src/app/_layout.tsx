@@ -66,7 +66,7 @@ function GlobalFooter({ currentSegment, onShowAlert }: { currentSegment: string,
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.tabItem} onPress={() => onShowAlert('Orbits')}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/orbits')}>
           <OrbitsIcon />
           <Text style={styles.tabText}>Orbits</Text>
         </TouchableOpacity>

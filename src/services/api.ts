@@ -142,6 +142,30 @@ export const api = {
   },
 
   // =========================================================================
+  // ORBITS (Grupos)
+  // =========================================================================
+  orbits: {
+    create: (data: { name: string }) =>
+      request<{ id: string; name: string; members: any[] }>('/orbits', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    get: (id: string) =>
+      request<{ id: string; name: string; members: any[] }>(`/orbits/${id}`, {
+        method: 'GET',
+      }),
+
+    join: (payload: { code?: string; orbitId?: string }) =>
+      request('/orbits/join', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+
+    listMine: () => request<{ orbits: any[] }>('/orbits/mine', { method: 'GET' }),
+  },
+
+  // =========================================================================
   // SAFELI API (Rutas Seguras y Feedback)
   // =========================================================================
   safeli: {
