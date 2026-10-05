@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   searchBar: {
     position: 'absolute',
     top: SEARCH_TOP,
-    left: 16,
+    left: 18,
     right: 16,
     zIndex: 200,
     flexDirection: 'row',
