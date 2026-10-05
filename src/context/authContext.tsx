@@ -157,22 +157,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (data: SignUpRequest): Promise<void> => {
     const formData = new FormData();
 
-    formData.append('firstName', data.firstName);
-    formData.append('lastName', data.lastName);
+    formData.append('nombre', data.firstName);
+    formData.append('apellido', data.lastName);
     formData.append('email', data.email);
     formData.append('username', data.username);
-    formData.append('birthDate', data.birthDate);
+    formData.append('fechaNacimiento', data.birthDate);
     formData.append('password', data.password);
 
     if (data.nroTelefono !== undefined && data.nroTelefono !== null) {
       formData.append('nroTelefono', String(data.nroTelefono));
     }
 
+    // Si no se completa, el backend guarda -1
+    if (data.contactoEmergencia !== undefined && data.contactoEmergencia !== null) {
+      formData.append('contactoEmergencia', String(data.contactoEmergencia));
+    }
+
     if (data.foto) {
       formData.append('foto', data.foto as any);
     }
 
-    const response = await fetch(`${BACKEND_URL}/auth/signup`, {
+    const response = await fetch(`${BACKEND_URL}/auth/register`, {
       method: 'POST',
       body: formData,
     });

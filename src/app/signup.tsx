@@ -25,6 +25,7 @@ interface FormFields {
   password: string;
   confirmPassword: string;
   nroTelefono: string;
+  contactoEmergencia: string;
   foto: any;
 }
 
@@ -37,6 +38,7 @@ interface FormErrors {
   password?: string;
   confirmPassword?: string;
   nroTelefono?: string;
+  contactoEmergencia?: string;
 }
 
 export default function SignUpScreen() {
@@ -50,6 +52,7 @@ export default function SignUpScreen() {
     password: '',
     confirmPassword: '',
     nroTelefono: '',
+    contactoEmergencia: '',
     foto: null,
   });
 
@@ -74,10 +77,10 @@ export default function SignUpScreen() {
   const updateField = (field: keyof FormFields, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
 
-    if (field === 'nroTelefono') {
+    if (field === 'nroTelefono' || field === 'contactoEmergencia') {
       setErrors((prev) => ({
         ...prev,
-        nroTelefono: validatePhoneNumber(String(value)),
+        [field]: validatePhoneNumber(String(value)),
       }));
     } else if (errors[field as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -123,6 +126,11 @@ export default function SignUpScreen() {
       newErrors.nroTelefono = phoneError;
     }
 
+    const contactoError = validatePhoneNumber(form.contactoEmergencia);
+    if (contactoError) {
+      newErrors.contactoEmergencia = contactoError;
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -143,6 +151,7 @@ export default function SignUpScreen() {
         birthDate: form.birthDate!.toISOString().split('T')[0], // YYYY-MM-DD
         password: form.password,
         nroTelefono: form.nroTelefono.trim() ? parseInt(form.nroTelefono.trim(), 10) : undefined,
+        contactoEmergencia: form.contactoEmergencia.trim() ? parseInt(form.contactoEmergencia.trim(), 10) : undefined,
         foto: fotoValue,
       });
 
@@ -255,6 +264,20 @@ export default function SignUpScreen() {
             autoComplete="off"
           />
           {errors.nroTelefono ? <Text style={styles.errorText}>{errors.nroTelefono}</Text> : null}
+        </View>
+
+        {/* Contacto de emergencia (Opcional) */}
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={[styles.input, errors.contactoEmergencia && styles.inputError]}
+            placeholder="Contacto de emergencia (Opcional)"
+            placeholderTextColor="#A0AEC0"
+            value={form.contactoEmergencia}
+            onChangeText={(t) => updateField('contactoEmergencia', t)}
+            keyboardType="number-pad"
+            autoComplete="off"
+          />
+          {errors.contactoEmergencia ? <Text style={styles.errorText}>{errors.contactoEmergencia}</Text> : null}
         </View>
 
         {/* Foto (Opcional) - web: file input, native: URL/text fallback */}

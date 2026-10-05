@@ -11,7 +11,7 @@ import ProfileIcon from '../components/icons/Profile';
 const SAFELI_BLUE = '#1A3FA8';
 
 // Rutas públicas — accesibles sin sesión
-const PUBLIC_ROUTES = new Set(['index', 'signup', 'forgot-password', 'verify-code', 'reset-password']);
+const PUBLIC_ROUTES = new Set(['index', 'signup', 'forgot-password', 'verify-code', 'reset-password', 'change-password']);
 
 function AuthGuard() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -61,7 +61,7 @@ function GlobalFooter({ currentSegment, onShowAlert }: { currentSegment: string,
         </TouchableOpacity>
 
         <View style={styles.sosContainer}>
-          <TouchableOpacity style={styles.sosButton} onPress={() => onShowAlert('SOS')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.sosButton} onPress={() => router.push('/sos')} activeOpacity={0.8}>
             <Text style={styles.sosText}>SOS</Text>
           </TouchableOpacity>
         </View>
@@ -92,7 +92,7 @@ function RootLayout() {
   }
 
   const currentSegment = (segments[0] as string) ?? '';
-  const mostrarFooter = currentSegment === 'home' || currentSegment === 'perfil';
+  const mostrarFooter = currentSegment === 'home' || currentSegment === 'perfil' || currentSegment === 'sos';
 
   const handlePlaceholderPress = (nombreBoton: string) => {
     setAlertMessage(`La sección de "${nombreBoton}" estará disponible próximamente.`);

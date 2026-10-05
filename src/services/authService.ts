@@ -87,6 +87,7 @@ function mapBackendUser(bu: any): User {
     nroTelefono: bu.nroTelefono ?? bu.nro_telefono ?? undefined,
     foto: bu.foto ?? undefined,
     birthDate: bu.birthDate ?? bu.fechaNacimiento ?? bu.fecha_nacimiento ?? undefined,
+    contactoEmergencia: bu.contactoEmergencia ?? bu.contacto_emergencia ?? undefined,
   } as User;
 }
 
