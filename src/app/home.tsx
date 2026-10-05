@@ -17,8 +17,7 @@ import {
 } from 'react-native';
 import MapRoute from '../components/MapRoute';
 import { api } from '../services/api';
-import type { LatLng, PlaceSuggestion, RouteResult } from '../services/googleApi';
-import type { RutaSegura } from '../services/safeliApi';
+import type { LatLng, PlaceSuggestion, RouteResult, RutaSegura } from '../types/route_types';
 
 const LockRating = ({ score, maxScore = 5, color }: { score: number; maxScore?: number; color: string }) => {
   return (

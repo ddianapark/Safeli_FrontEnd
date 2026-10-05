@@ -1,4 +1,4 @@
-import { LatLng } from './googleApi';
+import type { LatLng } from '../types/route_types';
 
 // Función para calcular distancia en metros entre dos puntos (Fórmula de Haversine)
 export function getDistanceMeters(p1: LatLng, p2: LatLng): number {
