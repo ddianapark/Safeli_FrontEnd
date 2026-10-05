@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,7 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { apiClient } from '../services/apiClient';
 
 export default function SignUpScreen() {
@@ -52,7 +52,7 @@ export default function SignUpScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
+        <Image source={require('../../assets/images/safeli.png')} style={styles.logo} resizeMode="contain" />
       </View>
 
       <View style={styles.body}>
