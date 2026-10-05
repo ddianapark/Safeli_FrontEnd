@@ -26,7 +26,7 @@ const INPUT_BG = '#F0F7FF';
 
 export default function ProfileScreen() {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
-  const { user, logout, updateProfile } = useAuth();
+  const { user, signOut: logout, updateProfile } = useAuth();
 
   const [isEditing, setIsEditing] = useState(false);
   const [isInfoExpanded, setIsInfoExpanded] = useState(false);

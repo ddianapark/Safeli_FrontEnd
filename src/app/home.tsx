@@ -138,11 +138,12 @@ export default function HomeScreen() {
   const cerrarFeedback = () => { setShowFeedbackModal(false); setRating(0); setComentario(''); };
 
   const enviarFeedback = async () => {
-    try {
-      await api.safeli.enviarFeedback({ rating, comentario, resumenViaje });
-    } catch (e) {
-      console.warn('Error al enviar feedback', e);
-    }
+    // TODO: el backend todavía no expone un endpoint de feedback
+    // try {
+    //   await api.safeli.enviarFeedback({ rating, comentario, resumenViaje });
+    // } catch (e) {
+    //   console.warn('Error al enviar feedback', e);
+    // }
     cerrarFeedback();
     setQuery('');
     setDestination(null);
@@ -204,10 +205,16 @@ export default function HomeScreen() {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (text.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
-    debounceRef.current = setTimeout(async () => { 
-      const results = await api.google.getPlaceSuggestions(text.trim()); 
-      setSuggestions(results); 
-      setShowSuggestions(results.length > 0); 
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const results = await api.google.getPlaceSuggestions(text.trim());
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      } catch (e) {
+        console.warn('Error al obtener sugerencias', e);
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
     }, 350);
   };
 
@@ -237,7 +244,17 @@ export default function HomeScreen() {
     }
   };
 
+  // Enter: si hay sugerencias visibles, toma la primera como destino
+  const handleSubmit = () => {
+    if (showSuggestions && suggestions.length > 0) {
+      handleSelectSuggestion(suggestions[0]);
+      return;
+    }
+    handleSearch();
+  };
+
   const handleSearch = async () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) return; Keyboard.dismiss(); setSuggestions([]); setShowSuggestions(false); setSearching(true);
     try { 
       const geo = await api.google.geocodeAddress(query.trim());
@@ -258,6 +275,7 @@ export default function HomeScreen() {
   };
 
   const handleSelectSuggestion = async (suggestion: PlaceSuggestion) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setQuery(suggestion.description); setSuggestions([]); setShowSuggestions(false); Keyboard.dismiss(); setSearching(true);
     try { 
       // Corrección de llamada a API centralizada
@@ -282,7 +300,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchBar}>
-        <TextInput placeholder="Buscar dirección o lugar" value={query} onChangeText={handleQueryChange} style={styles.searchInput} returnKeyType="search" onSubmitEditing={handleSearch} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)} />
+        <TextInput placeholder="Buscar dirección o lugar" value={query} onChangeText={handleQueryChange} style={styles.searchInput} returnKeyType="search" onSubmitEditing={handleSubmit} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)} />
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>{searching ? <ActivityIndicator color="#fff" /> : <Text style={styles.searchButtonText}>Buscar</Text>}</TouchableOpacity>
       </View>
 

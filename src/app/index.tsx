@@ -15,7 +15,7 @@ import { Path, Svg } from 'react-native-svg';
 import { useAuth } from '../context/authContext';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { signIn } = useAuth();
   const params = useLocalSearchParams<{ successMessage?: string | string[] }>();
 
   const [username, setUsername] = useState('');
@@ -50,7 +50,7 @@ export default function LoginScreen() {
     if (!validate()) return;
     setIsLoading(true);
     try {
-      await login({ username: username.trim(), password, rememberMe });
+      await signIn({ username: username.trim(), password, rememberMe });
     } catch (error: unknown) {
       console.error('Login error', error);
       const message =
