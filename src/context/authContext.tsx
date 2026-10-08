@@ -11,6 +11,54 @@ import type {
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL || 'https://safeli-api.vercel.app';
 
+async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (!response.ok) {
+    const responseText = await response.text();
+
+    try {
+      const parsed = responseText ? JSON.parse(responseText) : null;
+      if (parsed && typeof parsed === 'object') {
+        const message = parsed.message || parsed.error || parsed.details || 'Error del servidor';
+        throw new Error(String(message));
+      }
+    } catch {
+      // No es JSON o no se pudo parsear. Pasamos a validar si fue HTML.
+    }
+
+    if (responseText.trim().startsWith('<')) {
+      throw new Error('El servidor devolvió una página HTML en lugar de JSON. Revisá la URL o el backend.');
+    }
+
+    if (responseText.trim()) {
+      throw new Error(responseText.trim().slice(0, 200));
+    }
+
+    throw new Error(`Error del servidor (${response.status}).`);
+  }
+
+  if (!contentType.includes('application/json') && !contentType.includes('+json')) {
+    const responseText = await response.text();
+    if (responseText.trim().startsWith('<')) {
+      throw new Error('El servidor devolvió una respuesta HTML en lugar de JSON. Revisá la URL o el backend.');
+    }
+    throw new Error(`Respuesta inválida del servidor (tipo: ${contentType || 'desconocido'}).`);
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    const responseText = await response.clone().text();
+    const preview = responseText.trim().slice(0, 200);
+    throw new Error(
+      preview
+        ? `La respuesta del servidor no es JSON válido: ${preview}`
+        : 'La respuesta del servidor no es JSON válido.'
+    );
+  }
+}
+
 interface AuthContextData extends AuthContextType {
   signIn: (data: LoginRequest) => Promise<void>;
   signUp: (data: SignUpRequest) => Promise<void>;
@@ -133,19 +181,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse<{
+      accessToken?: string;
+      refreshToken?: string;
+      user?: User;
+      message?: string;
+    }>(response);
 
-    if (!response.ok) {
-      throw new Error(result?.message || 'Error al iniciar sesión');
+    if (!result.accessToken || !result.refreshToken || !result.user) {
+      throw new Error('Respuesta inválida del servidor');
     }
 
     const accessToken = result.accessToken;
     const refreshToken = result.refreshToken;
     const userData = result.user as User;
-
-    if (!accessToken || !refreshToken || !userData) {
-      throw new Error('Respuesta inválida del servidor');
-    }
 
     await tokenStorage.saveTokens(accessToken, refreshToken);
     await tokenStorage.saveUser(userData);
@@ -162,15 +211,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     formData.append('email', data.email);
     formData.append('username', data.username);
     formData.append('fechaNacimiento', data.birthDate);
-    formData.append('password', data.password);
+    formData.append('contraseña', data.password);
 
     if (data.nroTelefono !== undefined && data.nroTelefono !== null) {
       formData.append('nroTelefono', String(data.nroTelefono));
     }
 
-    // Si no se completa, el backend guarda -1
-    if (data.contactoEmergencia !== undefined && data.contactoEmergencia !== null) {
-      formData.append('contactoEmergencia', String(data.contactoEmergencia));
+    if (data.contactoEmergencia !== undefined) {
+      formData.append('contactoEmergencia', String(data.contactoEmergencia ?? -1));
     }
 
     if (data.foto) {
@@ -182,11 +230,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: formData,
     });
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result?.message || 'Error al registrar la cuenta');
-    }
+    const result = await parseJsonResponse<{
+      accessToken?: string;
+      refreshToken?: string;
+      user?: User;
+      message?: string;
+    }>(response);
 
     const accessToken = result.accessToken;
     const refreshToken = result.refreshToken;
@@ -222,11 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }),
     });
 
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result?.message || 'Error al cambiar la contraseña');
-    }
+    await parseJsonResponse<{ message?: string }>(response);
   };
 
   return (

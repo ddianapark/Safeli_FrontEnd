@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   searchBar: {
     position: 'absolute',
     top: SEARCH_TOP,
-    left: 18,
+    left: 50,
     right: 16,
     zIndex: 200,
     flexDirection: 'row',
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   protoStartButton2: { backgroundColor: 'rgb(255, 122, 0)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
   protoStartText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   customAlertOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     zIndex: 9999,
     justifyContent: 'center',

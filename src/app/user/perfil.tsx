@@ -15,7 +15,7 @@ import {
   UIManager,
   View,
 } from 'react-native';
-import { useAuth } from '../context/authContext';
+import { useAuth } from '../../context/authContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -64,7 +64,7 @@ export default function ProfileScreen() {
     if (user?.foto && user.foto !== '-1') {
       return { uri: user.foto };
     }
-    return require('../../assets/images/default.jpg');
+    return require('../../../assets/images/default.jpg');
   }, [selectedImage, user?.foto]);
 
   const seleccionarFoto = async () => {
@@ -170,7 +170,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.logoContainer}>
-          <Image source={require('../../assets/images/logotipo_color.png')} style={styles.logo} />
+          <Image source={require('../../../assets/images/logotipo_color.png')} style={styles.logo} />
         </View>
 
         <TouchableOpacity
@@ -314,7 +314,7 @@ export default function ProfileScreen() {
                   <View style={styles.infoCard}><Text style={styles.infoLabel}>Fecha de nacimiento</Text><Text style={styles.infoValue}>{user?.birthDate || (user as any)?.fechaNacimiento || 'Sin completar'}</Text></View>
                   <View style={styles.infoCard}><Text style={styles.infoLabel}>Teléfono</Text><Text style={styles.infoValue}>{user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}</Text></View>
                   <View style={styles.infoCard}><Text style={styles.infoLabel}>Contraseña</Text><Text style={styles.infoValue}>••••••••</Text></View>
-                  <TouchableOpacity style={styles.changePasswordOption} onPress={() => router.push('/change-password')} activeOpacity={0.7}>
+                  <TouchableOpacity style={styles.changePasswordOption} onPress={() => router.push('/user/change-password')} activeOpacity={0.7}>
                     <View style={styles.changePasswordLeft}><Ionicons name="key-outline" size={18} color={SAFELI_BLUE} /><Text style={styles.changePasswordText}>Cambiar contraseña</Text></View>
                     <Ionicons name="chevron-forward" size={18} color={SAFELI_BLUE} />
                   </TouchableOpacity>
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   pillButton: { width: '100%', maxWidth: 260, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: '#1A3FA8', backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.03, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   pillButtonText: { color: '#1A3FA8', fontSize: 16, fontWeight: '600' },
   customAlertOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.4)', 
     zIndex: 9999, 
     justifyContent: 'center',

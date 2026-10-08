@@ -11,7 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { router } from 'expo-router';
-import { authService } from '../services/authService';
+import { authService } from '../../services/authService';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -39,7 +39,7 @@ export default function ForgotPasswordScreen() {
       await authService.forgotPassword({ email: email.trim().toLowerCase() });
 
       router.push({
-      pathname: '/verify-code',
+      pathname: '/user/verify-code',
       params: { email: email.trim().toLowerCase() }
       });
     } catch (error: unknown) {
@@ -62,7 +62,7 @@ export default function ForgotPasswordScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Image
-          source={require('../../assets/images/safeli.png')} // TODO: adjust path to your logo
+          source={require('../../../assets/images/safeli.png')} // TODO: adjust path to your logo
           style={styles.logo}
           resizeMode="contain"
         />

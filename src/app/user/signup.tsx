@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import DatePicker from 'react-native-date-picker';
 import { Path, Svg } from 'react-native-svg';
-import { useAuth } from '../context/authContext';
+import { useAuth } from '../../context/authContext';
 
 interface FormFields {
   firstName: string;
@@ -150,8 +150,10 @@ export default function SignUpScreen() {
         username,
         birthDate: form.birthDate!.toISOString().split('T')[0], // YYYY-MM-DD
         password: form.password,
-        nroTelefono: form.nroTelefono.trim() ? parseInt(form.nroTelefono.trim(), 10) : undefined,
-        contactoEmergencia: form.contactoEmergencia.trim() ? parseInt(form.contactoEmergencia.trim(), 10) : undefined,
+        nroTelefono: form.nroTelefono.trim() ? parseInt(form.nroTelefono.trim(), 10) : null,
+        contactoEmergencia: form.contactoEmergencia.trim()
+          ? parseInt(form.contactoEmergencia.trim(), 10)
+          : -1,
         foto: fotoValue,
       });
 
@@ -183,7 +185,7 @@ export default function SignUpScreen() {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Image
-          source={require('../../assets/images/safeli.png')}
+          source={require('../../../assets/images/safeli.png')}
           style={styles.logo}
           resizeMode="contain"
         />

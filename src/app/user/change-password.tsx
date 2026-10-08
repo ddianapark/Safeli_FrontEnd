@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useAuth } from '../context/authContext';
+import { useAuth } from '../../context/authContext';
 
 const SAFELI_BLUE = '#1F2B99';
 const INPUT_BG = '#F0F7FF';
@@ -176,7 +176,7 @@ export default function ChangePasswordScreen() {
           </TouchableOpacity>
 
           {/* Link recuperación de contraseña */}
-          <TouchableOpacity onPress={() => router.push('/forgot-password')} style={styles.forgotPasswordLink}>
+          <TouchableOpacity onPress={() => router.push('/user/forgot-password')} style={styles.forgotPasswordLink}>
             <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
         </View>

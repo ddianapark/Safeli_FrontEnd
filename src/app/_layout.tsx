@@ -43,6 +43,8 @@ function SplashLoader() {
 
 // ─── COMPONENTE GLOBAL DEL FOOTER ────────────────────────────────
 function GlobalFooter({ currentSegment, onShowAlert }: { currentSegment: string, onShowAlert: (nombre: string) => void }) {
+  const isProfileActive = currentSegment === 'perfil' || currentSegment === 'user';
+
   return (
     <View style={styles.footerContainer}>
       <View style={styles.tabBar}>
@@ -66,14 +68,14 @@ function GlobalFooter({ currentSegment, onShowAlert }: { currentSegment: string,
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/orbits')}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/orbits/orbits')}>
           <OrbitsIcon />
           <Text style={styles.tabText}>Orbits</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/perfil')}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => router.push('/user/perfil')}>
           <ProfileIcon />
-          <Text style={[styles.tabText, currentSegment === 'perfil' && styles.tabTextActive]}>Perfil</Text>
+          <Text style={[styles.tabText, isProfileActive && styles.tabTextActive]}>Perfil</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -92,7 +94,14 @@ function RootLayout() {
   }
 
   const currentSegment = (segments[0] as string) ?? '';
-  const mostrarFooter = currentSegment === 'home' || currentSegment === 'perfil' || currentSegment === 'sos';
+  const mostrarFooter =
+    currentSegment === 'home' ||
+    currentSegment === 'user' ||
+    currentSegment === 'perfil' ||
+    currentSegment === 'sos' ||
+    currentSegment === 'orbits' ||
+    currentSegment === 'crear-orbit' ||
+    currentSegment === 'orbit-inside';
 
   const handlePlaceholderPress = (nombreBoton: string) => {
     setAlertMessage(`La sección de "${nombreBoton}" estará disponible próximamente.`);
@@ -218,7 +227,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   customAlertOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.4)', 
     zIndex: 9999, 
     justifyContent: 'center',

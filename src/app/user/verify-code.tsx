@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { authService } from '../services/authService';
+import { authService } from '../../services/authService';
 
 export default function VerifyCodeScreen() {
   const { email } = useLocalSearchParams();

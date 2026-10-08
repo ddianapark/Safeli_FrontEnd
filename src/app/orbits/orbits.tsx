@@ -10,7 +10,7 @@ export default function OrbitsScreen() {
       <View style={styles.headerBar} />
 
       <View style={styles.content}>
-        <Image source={require('../../assets/images/safeli.png')} style={styles.logo} resizeMode="contain" />
+        <Image source={require('../../../assets/images/safeli.png')} style={styles.logo} resizeMode="contain" />
 
         <Text style={styles.title}>Tus Orbits</Text>
 

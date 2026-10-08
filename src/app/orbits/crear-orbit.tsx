@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native';
-import { api } from '../services/api';
+import { api } from '../../services/api';
 import { router } from 'expo-router';
 
 type Member = { 
@@ -33,25 +33,51 @@ export default function CrearOrbitScreen() {
   };
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Crear Orbit</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Crear Orbit</Text>
+      </View>
 
-      <TextInput
-        placeholder="Nombre del Orbit"
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-      />
+      <View style={styles.body}>
+        <TextInput
+          placeholder="Nombre del Orbit"
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+        />
 
-      <TouchableOpacity style={[styles.button, !name.trim() && styles.buttonDisabled]} onPress={handleCreate} disabled={!name.trim() || loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Crear Orbit</Text>}
-      </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, !name.trim() && styles.buttonDisabled]} onPress={handleCreate} disabled={!name.trim() || loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Crear Orbit</Text>}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#F3F4F6' },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 16 },
+  container: { flex: 1, backgroundColor: '#F5F8FF' },
+  header: {
+    backgroundColor: '#1A3FA8',
+    paddingTop: 56,
+    paddingBottom: 24,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 56,
+    padding: 8,
+  },
+  backIcon: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '600',
+  },
+  title: { fontSize: 20, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
+  body: { flex: 1, padding: 20 },
   input: { backgroundColor: '#fff', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E6EEF9', marginBottom: 12 },
   button: { backgroundColor: '#1A3FA8', padding: 12, borderRadius: 10, alignItems: 'center' },
   buttonDisabled: { opacity: 0.6 },
