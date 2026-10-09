@@ -146,7 +146,7 @@ export default function LoginScreen() {
           {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
         </View>
 
-        <TouchableOpacity onPress={() => router.push('/forgot-password')} style={styles.forgotButton}>
+        <TouchableOpacity onPress={() => router.push('/user/forgot-password')} style={styles.forgotButton}>
           <Text style={styles.forgotText}>¿Te olvidaste la contraseña?</Text>
         </TouchableOpacity>
 
@@ -174,7 +174,7 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push('/signup')} style={styles.signUpLink}>
+        <TouchableOpacity onPress={() => router.push('/user/signup')} style={styles.signUpLink}>
           <Text style={styles.signUpText}>
             ¿No tenés cuenta? <Text style={styles.signUpBold}>Registrate</Text>
           </Text>
