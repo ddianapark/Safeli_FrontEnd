@@ -15,28 +15,29 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? '';
 
   if (!response.ok) {
-    const responseText = await response.text();
+  const responseText = await response.text();
 
-    try {
-      const parsed = responseText ? JSON.parse(responseText) : null;
-      if (parsed && typeof parsed === 'object') {
-        const message = parsed.message || parsed.error || parsed.details || 'Error del servidor';
-        throw new Error(String(message));
-      }
-    } catch {
-      // No es JSON o no se pudo parsear. Pasamos a validar si fue HTML.
-    }
-
-    if (responseText.trim().startsWith('<')) {
-      throw new Error('El servidor devolvió una página HTML en lugar de JSON. Revisá la URL o el backend.');
-    }
-
-    if (responseText.trim()) {
-      throw new Error(responseText.trim().slice(0, 200));
-    }
-
-    throw new Error(`Error del servidor (${response.status}).`);
+  let parsed: any = null;
+  try {
+    parsed = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    // no es JSON
   }
+
+  if (parsed && typeof parsed === 'object') {
+    throw new Error(String(parsed.message || parsed.error || parsed.details || 'Error del servidor'));
+  }
+
+  if (responseText.trim().startsWith('<')) {
+    throw new Error('El servidor devolvió una página HTML en lugar de JSON. Revisá la URL o el backend.');
+  }
+
+  if (responseText.trim()) {
+    throw new Error(responseText.trim().slice(0, 200));
+  }
+
+  throw new Error(`Error del servidor (${response.status}).`);
+}
 
   if (!contentType.includes('application/json') && !contentType.includes('+json')) {
     const responseText = await response.text();
