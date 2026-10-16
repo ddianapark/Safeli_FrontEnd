@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DatePicker from 'react-native-date-picker';
 import { Path, Svg } from 'react-native-svg';
 import { useAuth } from '../../context/authContext';
 
@@ -39,6 +38,7 @@ interface FormErrors {
   confirmPassword?: string;
   nroTelefono?: string;
   contactoEmergencia?: string;
+  foto?: string;
 }
 
 export default function SignUpScreen() {
@@ -61,6 +61,12 @@ export default function SignUpScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const DatePicker: any =
+  Platform.OS === 'web' ? null : require('react-native-date-picker').default;
+
+  const MAX_PHOTO_MB = 3;
+  const MAX_PHOTO_BYTES = MAX_PHOTO_MB * 1024 * 1024;
 
   const validatePhoneNumber = (value: string): string | undefined => {
     const trimmedValue = value.trim();
@@ -291,11 +297,21 @@ export default function SignUpScreen() {
                 accept="image/*"
                 autoComplete="off"
                 onChange={(e: any) => {
-                  const file = e?.target?.files?.[0];
-                  if (file) {
-                    updateField('foto', file as any);
-                  }
-                }}
+                const file = e?.target?.files?.[0];
+                if (!file) return;
+
+                if (file.size > MAX_PHOTO_BYTES) {
+                  e.target.value = ''; // limpia el input
+                  setForm((prev) => ({ ...prev, foto: null }));
+                  setErrors((prev) => ({
+                    ...prev,
+                    foto: `La foto pesa ${(file.size / 1024 / 1024).toFixed(1)} MB y el máximo es ${MAX_PHOTO_MB} MB. Elegí una más liviana.`,
+                  }));
+                  return;
+                }
+
+                updateField('foto', file as any); // también limpia el error anterior
+              }}
               />
               {form.foto && typeof form.foto !== 'string' ? (
                 <Image
@@ -316,6 +332,12 @@ export default function SignUpScreen() {
               autoComplete="off"
             />
           )}
+          {Platform.OS === 'web' && (
+            <Text style={{ color: '#718096', fontSize: 12, marginTop: 4, marginLeft: 4 }}>
+              Tamaño máximo: {MAX_PHOTO_MB} MB
+            </Text>
+          )}
+          {errors.foto ? <Text style={styles.errorText}>{errors.foto}</Text> : null}
         </View>
 
         {/* Fecha de nacimiento */}

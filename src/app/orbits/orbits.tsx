@@ -1,16 +1,16 @@
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const SAFELI_BLUE = '#1A3FA8';
 
 export default function OrbitsScreen() {
+  const router = useRouter();
   return (
     <View style={styles.container}>
-      <View style={styles.headerBar} />
 
       <View style={styles.content}>
-        <Image source={require('../../../assets/images/safeli.png')} style={styles.logo} resizeMode="contain" />
+        <Image source={require('../../../assets/images/logotipo_color.png')} style={styles.logo} resizeMode="contain" />
 
         <Text style={styles.title}>Tus Orbits</Text>
 
@@ -19,7 +19,7 @@ export default function OrbitsScreen() {
         </View>
 
         <View style={styles.buttonsRow}>
-          <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/orbit-inside' as any)}>
+          <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/orbits/orbit-inside')}>
             <Text style={styles.linkButtonText}>Link para unirse a orbit</Text>
           </TouchableOpacity>
 
@@ -28,7 +28,7 @@ export default function OrbitsScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.createButton} onPress={() => router.push('/crear-orbit' as any)}>
+        <TouchableOpacity style={styles.createButton} onPress={() => router.push('/orbits/crear-orbit')}>
           <Text style={styles.createButtonText}>Crear Orbit</Text>
         </TouchableOpacity>
       </View>
@@ -38,7 +38,6 @@ export default function OrbitsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
-  headerBar: { height: 20, backgroundColor: '#2B3AAA' },
   content: { flex: 1, alignItems: 'center', paddingTop: 24 },
   logo: { width: 120, height: 64, marginBottom: 18 },
   title: { fontSize: 18, fontWeight: '700', color: SAFELI_BLUE, marginBottom: 18 },

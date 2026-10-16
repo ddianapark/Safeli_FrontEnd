@@ -11,7 +11,10 @@ import ProfileIcon from '../components/icons/Profile';
 const SAFELI_BLUE = '#1A3FA8';
 
 // Rutas públicas — accesibles sin sesión
-const PUBLIC_ROUTES = new Set(['index', 'signup', 'forgot-password', 'verify-code', 'reset-password', 'change-password']);
+const PUBLIC_ROUTES = new Set(['index']);
+
+// Rutas públicas dentro de app/user/ (solo para quien NO tiene sesión)
+const PUBLIC_USER_ROUTES = new Set(['signup', 'forgot-password', 'verify-code', 'reset-password']);
 
 function AuthGuard() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -20,8 +23,12 @@ function AuthGuard() {
   useEffect(() => {
     if (isLoading) return;
 
-    const currentSegment = (segments[0] as string) ?? 'index';
-    const inPublicRoute = PUBLIC_ROUTES.has(currentSegment);
+    const first = (segments[0] as string) ?? 'index';
+    const second = (segments[1] as string) ?? '';
+
+    const inPublicRoute =
+      PUBLIC_ROUTES.has(first) ||
+      (first === 'user' && PUBLIC_USER_ROUTES.has(second));
 
     if (!isAuthenticated && !inPublicRoute) {
       router.replace('/');

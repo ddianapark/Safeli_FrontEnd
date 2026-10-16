@@ -226,10 +226,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       formData.append('foto', data.foto as any);
     }
 
-    const response = await fetch(`${BACKEND_URL}/auth/register`, {
-      method: 'POST',
-      body: formData,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${BACKEND_URL}/auth/register`, { method: 'POST', body: formData });
+    } catch {
+      throw new Error('No se pudo conectar con el servidor. Si elegiste una foto, probá con una más liviana.');
+    }
 
     const result = await parseJsonResponse<{
       accessToken?: string;
@@ -260,7 +262,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const changePassword = async (data: ChangePasswordRequest): Promise<void> => {
     const response = await fetch(`${BACKEND_URL}/auth/change-password`, {
-      method: 'POST',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,

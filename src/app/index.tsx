@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +17,7 @@ import { useAuth } from '../context/authContext';
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const params = useLocalSearchParams<{ successMessage?: string | string[] }>();
+  const router = useRouter();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
