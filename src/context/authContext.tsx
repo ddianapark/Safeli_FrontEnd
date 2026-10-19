@@ -1,11 +1,13 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
+import { authService } from '../services/authService';
 import type {
   AuthContextType,
   ChangePasswordRequest,
   LoginRequest,
   SignUpRequest,
+  UpdateProfileRequest,
   User,
 } from '../types/auth_types';
 
@@ -260,6 +262,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsAuthenticated(false);
   };
 
+  const updateProfile = async (data: UpdateProfileRequest | FormData): Promise<User> => {
+    if (!user) throw new Error('No hay sesión activa');
+
+    const updatedUser = await authService.updateProfile(data);
+
+    await tokenStorage.saveUser(updatedUser);
+    setUser(updatedUser);
+
+    return updatedUser;
+  };
+
   const changePassword = async (data: ChangePasswordRequest): Promise<void> => {
     const response = await fetch(`${BACKEND_URL}/auth/change-password`, {
       method: 'PATCH',
@@ -288,10 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signOut,
         map: async () => undefined,
         refreshUser: async () => undefined,
-        updateProfile: async (data) => {
-          if (!user) throw new Error('No hay sesión activa');
-          return user;
-        },
+        updateProfile,
         changePassword,
         token,
       }}

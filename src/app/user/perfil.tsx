@@ -331,12 +331,12 @@ export default function ProfileScreen() {
             <Text style={styles.pillButtonText}>Reportes</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.pillButton} onPress={() => handlePlaceholderPress('Orbit')} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.pillButton} onPress={() => router.push('/orbits/orbits')} activeOpacity={0.7}>
             <Text style={styles.pillButtonText}>Orbit</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.pillButton} onPress={logout} activeOpacity={0.7}>
-            <Text style={styles.pillButtonText}>Cerrar sesión</Text>
+            <Text style={styles.pillButtonText}>Cerrar Sesion</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

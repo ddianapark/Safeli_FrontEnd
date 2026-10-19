@@ -1,45 +1,55 @@
-// @ts-nocheck
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { api } from '../../services/api';
+import { getErrorMessage, notify } from '../../services/Orbitinvite';
 
-type Member = { 
-    id: string; 
-    name: string; 
-    role?: string };
-
-type Orbit = { 
-    id: string; 
-    name: string; 
-    members: Member[] } | null;
-
-    
 const SAFELI_BLUE = '#1A3FA8';
 
 export default function CrearOrbitScreen() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  // Si ya se creó el Orbit (por ej. al tocar "Agregar miembro"), reutilizamos el id para no duplicarlo
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
-  const handleCreate = async () => {
-    if (!name.trim()) return Alert.alert('Nombre vacío', 'Ingresá un nombre para el Orbit.');
+  const ensureOrbit = async (): Promise<string | null> => {
+    if (createdId) return createdId;
+    if (!name.trim()) {
+      notify('Nombre vacío', 'Ingresá un nombre para el Orbit.');
+      return null;
+    }
+
     setLoading(true);
     try {
-      const res = await api.orbits.create({ name: name.trim() });
-      // redirect a orbit-inside view con id creado (ruta dentro de folder `orbits`)
-      router.push(`/orbits/orbit-inside?id=${encodeURIComponent(res.id)}`);
+      const res: any = await api.orbits.create({ name: name.trim() });
+      const id = res?.id ?? res?.orbit?.id;
+      if (!id) throw new Error('El servidor no devolvió el id del Orbit.');
+      setCreatedId(String(id));
+      return String(id);
     } catch (err: any) {
       console.error('Error creando orbit:', err);
-      const serverMessage = err?.response?.data?.message || err?.message || 'No se pudo crear el Orbit.';
-      Alert.alert('Error', String(serverMessage));
+      notify('Error', getErrorMessage(err, 'No se pudo crear el Orbit.'));
+      return null;
     } finally {
       setLoading(false);
     }
   };
+
+  const handleCreate = async () => {
+    const id = await ensureOrbit();
+    if (!id) return;
+    router.replace({ pathname: '/orbits/orbit-inside', params: { id } });
+  };
+
+  const handleAddMember = async () => {
+    const id = await ensureOrbit();
+    if (!id) return;
+    router.push({ pathname: '/orbits/agregar-miembro', params: { orbitId: id } });
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.headerStrip} />
       <View style={styles.content}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backIcon}>←</Text>
@@ -56,16 +66,23 @@ export default function CrearOrbitScreen() {
             style={styles.input}
             value={name}
             onChangeText={setName}
+            editable={!createdId && !loading}
           />
 
-          <TouchableOpacity style={styles.addMemberRow} onPress={() => Alert.alert('Agregar miembro', 'Función de agregar miembro aún no implementada')}>
+          <TouchableOpacity style={styles.addMemberRow} onPress={handleAddMember} disabled={loading}>
             <View style={styles.addMemberButton}>
               <Text style={styles.addMemberText}>Agregar miembro</Text>
             </View>
-            <View style={styles.plusCircle}><Text style={styles.plus}>+</Text></View>
+            <View style={styles.plusCircle}>
+              <Text style={styles.plus}>+</Text>
+            </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.createMainButton, !name.trim() && styles.buttonDisabled]} onPress={handleCreate} disabled={!name.trim() || loading}>
+          <TouchableOpacity
+            style={[styles.createMainButton, (!name.trim() || loading) && styles.buttonDisabled]}
+            onPress={handleCreate}
+            disabled={!name.trim() || loading}
+          >
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.createMainButtonText}>Crear</Text>}
           </TouchableOpacity>
         </View>
@@ -76,14 +93,13 @@ export default function CrearOrbitScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
-  headerStrip: { height: 12, backgroundColor: SAFELI_BLUE },
   content: { flex: 1, alignItems: 'center', paddingTop: 18, backgroundColor: '#ffffff' },
   logo: { width: 140, height: 64, marginTop: 8, marginBottom: 12 },
-  title: { fontSize: 16, fontWeight: '600', color: SAFELI_BLUE, marginBottom: 18 },
+  title: { fontSize: 18, fontWeight: '700', color: SAFELI_BLUE, marginBottom: 18 },
   backButton: { position: 'absolute', left: 14, top: 18, padding: 8 },
   backIcon: { color: SAFELI_BLUE, fontSize: 20 },
   body: { width: '100%', flex: 1, padding: 18, alignItems: 'center' },
-  input: { width: '60%', backgroundColor: '#fff', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: SAFELI_BLUE, marginBottom: 18, textAlign: 'center' },
+  input: { width: '60%', minWidth: 200, backgroundColor: '#fff', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: SAFELI_BLUE, marginBottom: 18, textAlign: 'center' },
   addMemberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 28 },
   addMemberButton: { backgroundColor: '#EAF4F9', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, marginRight: 10 },
   addMemberText: { color: SAFELI_BLUE },

@@ -37,7 +37,7 @@ export default function SosScreen() {
 
   return (
     <View style={styles.container}>
-      <Image source={require('../../assets/images/safeli.png')} style={styles.logo} resizeMode="contain" />
+      <Image source={require('../../assets/images/logotipo_color.png')} style={styles.logo} resizeMode="contain" />
 
       <View style={styles.buttons}>
         {contactoEmergencia ? (

@@ -1,10 +1,10 @@
+import { router, Stack, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, Text, TouchableOpacity, Alert, Platform } from 'react-native';
-import { Stack, useSegments, router } from 'expo-router';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AuthProvider, useAuth } from '../context/authContext';
 
-import HomeIcon from '../components/icons/Home';
 import FeedbackIcon from '../components/icons/Feedback';
+import HomeIcon from '../components/icons/Home';
 import OrbitsIcon from '../components/icons/Orbits';
 import ProfileIcon from '../components/icons/Profile';
 
@@ -70,8 +70,12 @@ function GlobalFooter({ currentSegment, onShowAlert }: { currentSegment: string,
         </TouchableOpacity>
 
         <View style={styles.sosContainer}>
-          <TouchableOpacity style={styles.sosButton} onPress={() => router.push('/sos')} activeOpacity={0.8}>
-            <Text style={styles.sosText}>SOS</Text>
+          <TouchableOpacity
+            style={[styles.sosButton, currentSegment === 'sos' && styles.sosButtonActive]}
+            onPress={() => router.push('/sos')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.sosText, currentSegment === 'sos' && styles.sosTextActive]}>SOS</Text>
           </TouchableOpacity>
         </View>
 
@@ -227,11 +231,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
+  sosButtonActive: {
+    backgroundColor: '#BC0000',
+    borderColor: '#9A0000',
+  },
   sosText: {
     color: '#BC0000',
     fontWeight: '900',
     fontSize: 16,
     letterSpacing: 0.5,
+  },
+  sosTextActive: {
+    color: '#fff',
   },
   customAlertOverlay: {
     ...StyleSheet.absoluteFill,
