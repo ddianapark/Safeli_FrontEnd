@@ -4,11 +4,12 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacit
 import { api } from '../../services/api';
 import { getErrorMessage, notify } from '../../services/Orbitinvite';
 import { Ionicons } from '@expo/vector-icons';
+import { pickOrbitPhoto } from '../../services/orbitPhoto';
 
 const SAFELI_BLUE = '#1A3FA8';
 
 type Member = { id: string; name: string; subtitle?: string; photo?: string };
-type Orbit = { id: string; name: string; members: Member[] };
+type Orbit = { id: string; name: string; photo?: string; members: Member[] };
 
 // Tolera distintas formas de miembro que pueda devolver el backend
 function normalizeMember(m: any, index: number): Member {
@@ -43,7 +44,12 @@ export default function OrbitInsideScreen() {
         try {
           const res: any = await api.orbits.get(id);
           if (!cancelled) {
-            setOrbit({ id: String(res.id), name: res.name, members: (res.members ?? []).map(normalizeMember) });
+            setOrbit({
+              id: String(res.id),
+              name: res.name,
+              photo: res.photo ?? undefined,
+              members: (res.members ?? []).map(normalizeMember),
+            });
           }
         } catch (e: any) {
           if (!cancelled) notify('Error', getErrorMessage(e, 'No se pudo obtener el Orbit.'));
@@ -56,6 +62,23 @@ export default function OrbitInsideScreen() {
       };
     }, [id])
   );
+
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const handleChangePhoto = async () => {
+    if (!orbit) return;
+    try {
+      const picked = await pickOrbitPhoto();
+      if (!picked) return;
+      setUploadingPhoto(true);
+      const res = await api.orbits.updatePhoto(orbit.id, picked);
+      setOrbit((o) => (o ? { ...o, photo: res.photo } : o));
+    } catch (e: any) {
+      notify('Error', getErrorMessage(e, 'No se pudo cambiar la foto.'));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -78,6 +101,19 @@ export default function OrbitInsideScreen() {
       </View>
 
       <Image source={require('../../../assets/images/logotipo_color.png')} style={styles.logo} resizeMode="contain" />
+      
+      <TouchableOpacity onPress={handleChangePhoto} disabled={!orbit || uploadingPhoto} activeOpacity={0.8} style={styles.orbitPhotoWrap}>
+        {orbit?.photo ? (
+          <Image source={{ uri: orbit.photo }} style={styles.orbitPhoto} />
+        ) : (
+          <View style={[styles.orbitPhoto, styles.orbitPhotoEmpty]}>
+            <Text style={styles.orbitPhotoLetter}>{(orbit?.name ?? '?').trim().charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
+        <View style={styles.cameraBadge}>
+          {uploadingPhoto ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={14} color="#fff" />}
+        </View>
+      </TouchableOpacity>
 
       <View style={styles.titleRow}>
         <TouchableOpacity
@@ -176,4 +212,9 @@ const styles = StyleSheet.create({
   buttonsContainer: { paddingHorizontal: 60, gap: 14, alignItems: 'center', marginBottom: 16 },
   pillButton: { width: '100%', maxWidth: 260, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: '#1A3FA8', backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.03, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   pillButtonText: { color: '#1A3FA8', fontSize: 16, fontWeight: '600' },
+  orbitPhotoWrap: { marginBottom: 12 },
+  orbitPhoto: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#DCE6FA' },
+  orbitPhotoEmpty: { justifyContent: 'center', alignItems: 'center' },
+  orbitPhotoLetter: { color: SAFELI_BLUE, fontWeight: '700', fontSize: 34 },
+  cameraBadge: { position: 'absolute', right: 0, bottom: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: SAFELI_BLUE, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
 });

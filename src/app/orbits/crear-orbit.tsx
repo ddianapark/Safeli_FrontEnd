@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { api } from '../../services/api';
 import { getErrorMessage, notify } from '../../services/Orbitinvite';
+import { pickOrbitPhoto, type PickedPhoto } from '../../services/orbitPhoto';
 
 const SAFELI_BLUE = '#1A3FA8';
 
@@ -10,6 +11,7 @@ export default function CrearOrbitScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   // Si ya se creó el Orbit (por ej. al tocar "Agregar miembro"), reutilizamos el id para no duplicarlo
   const [createdId, setCreatedId] = useState<string | null>(null);
 
@@ -22,7 +24,7 @@ export default function CrearOrbitScreen() {
 
     setLoading(true);
     try {
-      const res: any = await api.orbits.create({ name: name.trim() });
+      const res: any = await api.orbits.create(name.trim(), photo ?? undefined);
       const id = res?.id ?? res?.orbit?.id;
       if (!id) throw new Error('El servidor no devolvió el id del Orbit.');
       setCreatedId(String(id));
@@ -48,6 +50,23 @@ export default function CrearOrbitScreen() {
     router.push({ pathname: '/orbits/agregar-miembro', params: { orbitId: id } });
   };
 
+  const handlePickPhoto = async () => {
+    try {
+      const picked = await pickOrbitPhoto();
+      if (!picked) return;
+      setPhoto(picked);
+      // Si el Orbit ya existe, la foto se sube directo
+      if (createdId) {
+        setLoading(true);
+        await api.orbits.updatePhoto(createdId, picked);
+      }
+    } catch (err: any) {
+      notify('Error', getErrorMessage(err, 'No se pudo cambiar la foto.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
@@ -60,6 +79,17 @@ export default function CrearOrbitScreen() {
         <Text style={styles.title}>Crear Orbit</Text>
 
         <View style={styles.body}>
+          <TouchableOpacity onPress={handlePickPhoto} disabled={loading} activeOpacity={0.8} style={styles.photoPicker}>
+            {photo ? (
+              <Image source={{ uri: photo.uri }} style={styles.photoImg} />
+            ) : (
+              <View style={[styles.photoImg, styles.photoEmpty]}>
+                <Text style={styles.photoPlus}>📷</Text>
+              </View>
+            )}
+            <Text style={styles.photoHint}>{photo ? 'Cambiar foto' : 'Agregar foto (opcional)'}</Text>
+          </TouchableOpacity>
+
           <TextInput
             placeholder="Nombre de Orbit"
             placeholderTextColor="#6B7280"
@@ -99,6 +129,11 @@ const styles = StyleSheet.create({
   backButton: { position: 'absolute', left: 14, top: 18, padding: 8 },
   backIcon: { color: SAFELI_BLUE, fontSize: 20 },
   body: { width: '100%', flex: 1, padding: 18, alignItems: 'center' },
+  photoPicker: { alignItems: 'center', marginBottom: 18 },
+  photoImg: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#DCE6FA' },
+  photoEmpty: { justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: SAFELI_BLUE, borderStyle: 'dashed' },
+  photoPlus: { fontSize: 28 },
+  photoHint: { marginTop: 8, color: SAFELI_BLUE, fontSize: 13 },
   input: { width: '60%', minWidth: 200, backgroundColor: '#fff', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: SAFELI_BLUE, marginBottom: 18, textAlign: 'center' },
   addMemberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 28 },
   addMemberButton: { backgroundColor: '#EAF4F9', paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, marginRight: 10 },

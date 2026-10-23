@@ -5,6 +5,9 @@ import { useAuth } from '../context/authContext';
 
 const SOS_RED = '#BC0000';
 
+// Número al que llaman TODOS los botones de SOS (reemplaza a los números reales)
+const NUMERO_DESTINO = '+5491132043215';
+
 const SERVICIOS = [
   { label: 'Policía', numero: '101' },
   { label: 'Ambulancia', numero: '107' },
@@ -19,14 +22,15 @@ export default function SosScreen() {
   const contactoEmergencia =
     user?.contactoEmergencia && user.contactoEmergencia !== -1 ? user.contactoEmergencia : null;
 
-  const llamar = async (numero: string | number) => {
+  // Todos los botones llaman a NUMERO_DESTINO en lugar del número real (el parámetro original se ignora)
+  const llamar = async (_numeroOriginal: string | number) => {
     setError(null);
-    const url = `tel:${numero}`;
+    const url = `tel:${NUMERO_DESTINO}`;
     try {
       await Linking.openURL(url);
     } catch (e) {
       console.warn('No se pudo iniciar la llamada', e);
-      setError(`No se pudo iniciar la llamada. Marcá ${numero} manualmente.`);
+      setError(`No se pudo iniciar la llamada. Marcá ${NUMERO_DESTINO} manualmente.`);
     }
   };
 

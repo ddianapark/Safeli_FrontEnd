@@ -12,6 +12,20 @@ export default function AgregarMiembroScreen() {
   const router = useRouter();
   const orbitId = typeof params.orbitId === 'string' ? params.orbitId : undefined;
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    if (orbitId) {
+      router.replace({ pathname: '/orbits/orbit-inside', params: { id: orbitId } });
+      return;
+    }
+
+    router.replace('/orbits/orbits');
+  };
+
   const [inviteUrl, setInviteUrl] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -60,7 +74,7 @@ export default function AgregarMiembroScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Image source={require('../../../assets/images/logotipo_color.png')} style={styles.logo} resizeMode="contain" />
@@ -76,11 +90,6 @@ export default function AgregarMiembroScreen() {
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Copiar enlace de invitación</Text>}
         </TouchableOpacity>
 
-        {!!inviteUrl && (
-          <Text style={styles.urlPreview} numberOfLines={2} selectable>
-            {inviteUrl}
-          </Text>
-        )}
       </View>
     </View>
   );

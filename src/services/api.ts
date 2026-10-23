@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { request } from './apiClient';
+import apiClient, { request } from './apiClient';
+import { appendPhoto, type PickedPhoto } from './orbitPhoto';
 import type { LatLng, PlaceSuggestion, RouteResult, RutaSegura } from '../types/route_types';
 
 // =========================================================================
@@ -141,20 +142,29 @@ export const api = {
       }),
   },
 
-  // =========================================================================
+    // =========================================================================
   // ORBITS (Grupos)
   // =========================================================================
   orbits: {
-    create: (data: { name: string }) =>
-      request<{ id: string; name: string; members: any[] }>('/orbits', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    create: async (name: string, photo?: PickedPhoto) => {
+      const form = new FormData();
+      form.append('name', name);
+      if (photo) await appendPhoto(form, photo);
+      const res = await apiClient.post<{ id: string; name: string; photo?: string | null; members: any[] }>('/orbits', form);
+      return res.data;
+    },
 
     get: (id: string) =>
-      request<{ id: string; name: string; members: any[] }>(`/orbits/${id}`, {
+      request<{ id: string; name: string; photo?: string | null; members: any[] }>(`/orbits/${id}`, {
         method: 'GET',
       }),
+
+    updatePhoto: async (id: string, photo: PickedPhoto) => {
+      const form = new FormData();
+      await appendPhoto(form, photo);
+      const res = await apiClient.patch<{ id: string; photo: string }>(`/orbits/${id}/foto`, form);
+      return res.data;
+    },
 
     join: (payload: { code?: string; orbitId?: string }) =>
       request('/orbits/join', {

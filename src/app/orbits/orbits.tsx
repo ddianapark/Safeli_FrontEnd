@@ -6,7 +6,7 @@ import { getErrorMessage, joinWithInvite, notify, parseInviteCode } from '../../
 
 const SAFELI_BLUE = '#1A3FA8';
 
-type OrbitItem = { id: string; name: string; memberCount?: number };
+type OrbitItem = { id: string; name: string; photo?: string; memberCount?: number };
 
 export default function OrbitsScreen() {
   const router = useRouter();
@@ -25,6 +25,7 @@ export default function OrbitsScreen() {
           const list = (res?.orbits ?? []).map((o: any) => ({
             id: String(o.id),
             name: String(o.name),
+            photo: o.photo ?? undefined,
             memberCount: o.memberCount ?? o.members_count ?? (Array.isArray(o.members) ? o.members.length : undefined),
           }));
           if (!cancelled) setOrbits(list);
@@ -80,9 +81,13 @@ export default function OrbitsScreen() {
               activeOpacity={0.85}
               onPress={() => router.push({ pathname: '/orbits/orbit-inside', params: { id: o.id } })}
             >
-              <View style={styles.orbitAvatar}>
-                <Text style={styles.orbitAvatarText}>{o.name.trim().charAt(0).toUpperCase()}</Text>
-              </View>
+              {o.photo ? (
+                <Image source={{ uri: o.photo }} style={styles.orbitAvatar} />
+              ) : (
+                <View style={styles.orbitAvatar}>
+                  <Text style={styles.orbitAvatarText}>{o.name.trim().charAt(0).toUpperCase()}</Text>
+                </View>
+              )}
               <Text style={styles.orbitName}>{o.name}</Text>
             </TouchableOpacity>
           ))
