@@ -1,15 +1,17 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../../services/api';
 import { getErrorMessage, notify } from '../../services/Orbitinvite';
 import { Ionicons } from '@expo/vector-icons';
 import { pickOrbitPhoto } from '../../services/orbitPhoto';
+import MemberMap from '../../components/MemberMap';
 
 const SAFELI_BLUE = '#1A3FA8';
 
-type Member = { id: string; name: string; subtitle?: string; photo?: string };
+type Member = { id: string; name: string; subtitle?: string; photo?: string; isMe?: boolean };
 type Orbit = { id: string; name: string; photo?: string; members: Member[] };
+type MemberLocation = { latitude: number; longitude: number; updatedAt: string };
 
 // Tolera distintas formas de miembro que pueda devolver el backend
 function normalizeMember(m: any, index: number): Member {
@@ -21,7 +23,17 @@ function normalizeMember(m: any, index: number): Member {
     name: String(name),
     subtitle: m?.address ?? m?.direccion,
     photo,
+    isMe: Boolean(m?.isMe),
   };
+}
+
+function hace(iso: string): string {
+  const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (min < 1) return 'hace instantes';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `hace ${Math.floor(h / 24)} d`;
 }
 
 export default function OrbitInsideScreen() {
@@ -31,6 +43,13 @@ export default function OrbitInsideScreen() {
   const [orbit, setOrbit] = useState<Orbit | null>(null);
   const [loading, setLoading] = useState(true);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // Ubicación de un integrante
+  const [selected, setSelected] = useState<Member | null>(null);
+  const [memberLoc, setMemberLoc] = useState<MemberLocation | null>(null);
+  const [locLoading, setLocLoading] = useState(false);
+  const [locError, setLocError] = useState<string | null>(null);
 
   // Se recarga cada vez que la pantalla toma foco (ej. al volver de "Agregar usuario")
   useFocusEffect(
@@ -63,8 +82,6 @@ export default function OrbitInsideScreen() {
     }, [id])
   );
 
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-
   const handleChangePhoto = async () => {
     if (!orbit) return;
     try {
@@ -80,6 +97,37 @@ export default function OrbitInsideScreen() {
     }
   };
 
+  const loadMemberLocation = async (member: Member) => {
+    if (!orbit) return;
+    setLocLoading(true);
+    setLocError(null);
+    setMemberLoc(null);
+    try {
+      const res = await api.orbits.memberLocation(orbit.id, member.id);
+      setMemberLoc({ latitude: res.latitude, longitude: res.longitude, updatedAt: res.updatedAt });
+    } catch (e: any) {
+      if (e?.response?.status === 404) {
+        setLocError('Todavía no compartió su ubicación.');
+      } else {
+        setLocError(getErrorMessage(e, 'No se pudo obtener la ubicación.'));
+      }
+    } finally {
+      setLocLoading(false);
+    }
+  };
+
+  const handleMemberPress = (m: Member) => {
+    if (m.isMe) return;
+    setSelected(m);
+    loadMemberLocation(m);
+  };
+
+  const closeLocationModal = () => {
+    setSelected(null);
+    setMemberLoc(null);
+    setLocError(null);
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -89,7 +137,7 @@ export default function OrbitInsideScreen() {
   }
 
   const handlePlaceholderPress = (nombreBoton: string) => {
-   setAlertMessage(`La sección de "${nombreBoton}" estará disponible próximamente.`);
+    setAlertMessage(`La sección de "${nombreBoton}" estará disponible próximamente.`);
   };
 
   return (
@@ -101,7 +149,7 @@ export default function OrbitInsideScreen() {
       </View>
 
       <Image source={require('../../../assets/images/logotipo_color.png')} style={styles.logo} resizeMode="contain" />
-      
+
       <TouchableOpacity onPress={handleChangePhoto} disabled={!orbit || uploadingPhoto} activeOpacity={0.8} style={styles.orbitPhotoWrap}>
         {orbit?.photo ? (
           <Image source={{ uri: orbit.photo }} style={styles.orbitPhoto} />
@@ -137,26 +185,65 @@ export default function OrbitInsideScreen() {
 
       <ScrollView contentContainerStyle={styles.list}>
         {(orbit?.members ?? []).map((m) => (
-          <View key={m.id} style={styles.memberRow}>
+          <TouchableOpacity
+            key={m.id}
+            style={styles.memberRow}
+            activeOpacity={m.isMe ? 1 : 0.7}
+            onPress={() => handleMemberPress(m)}
+          >
             {m.photo ? <Image source={{ uri: m.photo }} style={styles.avatar} /> : <View style={styles.avatar} />}
             <Text style={styles.memberText}>
               {m.name}
               {m.subtitle ? ` - ${m.subtitle}` : ''}
             </Text>
-          </View>
+            {!m.isMe && <Ionicons name="location-outline" size={22} color={SAFELI_BLUE} />}
+          </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* Última ubicación del integrante */}
+      <Modal animationType="slide" transparent visible={!!selected} onRequestClose={closeLocationModal}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.locationCard}>
+            <View style={styles.locationHeader}>
+              <Text style={styles.locationTitle} numberOfLines={1}>
+                {selected?.name}
+              </Text>
+              <TouchableOpacity onPress={closeLocationModal} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {locLoading && <ActivityIndicator color={SAFELI_BLUE} style={{ marginVertical: 40 }} />}
+
+            {!locLoading && locError && <Text style={styles.locationError}>{locError}</Text>}
+
+            {!locLoading && memberLoc && (
+              <>
+                <View style={styles.mapBox}>
+                  <MemberMap latitude={memberLoc.latitude} longitude={memberLoc.longitude} title={selected?.name} />
+                </View>
+                <Text style={styles.locationInfo}>Actualizado {hace(memberLoc.updatedAt)}</Text>
+                <Text style={styles.locationDate}>{new Date(memberLoc.updatedAt).toLocaleString('es-AR')}</Text>
+              </>
+            )}
+
+            {!locLoading && (
+              <TouchableOpacity style={styles.refreshButton} onPress={() => selected && loadMemberLocation(selected)}>
+                <Text style={styles.refreshButtonText}>Actualizar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {alertMessage && (
         <View style={styles.customAlertOverlay}>
           <View style={styles.customAlertBox}>
             <Text style={styles.customAlertTitle}>Módulo en Desarrollo</Text>
             <Text style={styles.customAlertText}>{alertMessage}</Text>
-            
-            <TouchableOpacity 
-              style={styles.customAlertButton} 
-              onPress={() => setAlertMessage(null)} 
-            >
+
+            <TouchableOpacity style={styles.customAlertButton} onPress={() => setAlertMessage(null)}>
               <Text style={styles.customAlertButtonText}>Aceptar</Text>
             </TouchableOpacity>
           </View>
@@ -217,4 +304,15 @@ const styles = StyleSheet.create({
   orbitPhotoEmpty: { justifyContent: 'center', alignItems: 'center' },
   orbitPhotoLetter: { color: SAFELI_BLUE, fontWeight: '700', fontSize: 34 },
   cameraBadge: { position: 'absolute', right: 0, bottom: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: SAFELI_BLUE, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
+  locationCard: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28 },
+  locationHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  locationTitle: { flex: 1, fontSize: 18, fontWeight: '800', color: '#1D2DA4' },
+  closeButton: { padding: 4 },
+  mapBox: { height: 300, borderRadius: 14, overflow: 'hidden', backgroundColor: '#E2E8F0' },
+  locationInfo: { marginTop: 12, fontSize: 15, fontWeight: '700', color: '#0F172A', textAlign: 'center' },
+  locationDate: { marginTop: 2, fontSize: 12, color: '#64748B', textAlign: 'center' },
+  locationError: { marginVertical: 32, fontSize: 15, color: '#475569', textAlign: 'center' },
+  refreshButton: { marginTop: 16, backgroundColor: SAFELI_BLUE, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  refreshButtonText: { color: '#fff', fontWeight: '700' },
 });

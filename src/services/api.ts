@@ -142,6 +142,14 @@ export const api = {
       }),
   },
 
+  usuarios: {
+        updateLocation: (latitude: number, longitude: number) =>
+          request<{ updatedAt: string }>('/usuarios/ubicacion', {
+            method: 'PUT',
+            body: JSON.stringify({ latitude, longitude }),
+          }),
+    },
+
     // =========================================================================
   // ORBITS (Grupos)
   // =========================================================================
@@ -153,6 +161,11 @@ export const api = {
       const res = await apiClient.post<{ id: string; name: string; photo?: string | null; members: any[] }>('/orbits', form);
       return res.data;
     },
+    memberLocation: (orbitId: string, userId: string) =>
+    request<{ userId: string; latitude: number; longitude: number; updatedAt: string }>(
+      `/orbits/${orbitId}/miembros/${userId}/ubicacion`,
+      { method: 'GET' }
+    ),
 
     get: (id: string) =>
       request<{ id: string; name: string; photo?: string | null; members: any[] }>(`/orbits/${id}`, {

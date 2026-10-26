@@ -69,6 +69,32 @@ export default function HomeScreen() {
   const [resumenViaje, setResumenViaje] = useState({ origen: '', destino: '', duracion: '' });
   const [enViaje, setEnViaje] = useState(false);
 
+  const lastSentRef = useRef(0);
+  const origenViajeRef = useRef<LatLng | null>(null);
+
+  useEffect(() => {
+    if (enViaje) origenViajeRef.current = userLocation;
+  }, [enViaje]);
+
+  // Envía la ubicación mientras hay viaje activo (máx. 1 vez cada 10 s, sin perder la última posición)
+  useEffect(() => {
+    if (!enViaje) return;
+    const MIN_MS = 10000;
+    const enviar = () => {
+      lastSentRef.current = Date.now();
+      api.usuarios
+        .updateLocation(userLocation.latitude, userLocation.longitude)
+        .catch((e) => console.warn('No se pudo enviar la ubicación', e));
+    };
+    const espera = MIN_MS - (Date.now() - lastSentRef.current);
+    if (espera <= 0) {
+      enviar();
+      return;
+    }
+    const t = setTimeout(enviar, espera);
+    return () => clearTimeout(t);
+  }, [userLocation, enViaje]);
+
   const isLocationInAMBA = (lat: number, lng: number) => {
     const MIN_LAT = -35.00;
     const MAX_LAT = -34.15;
@@ -119,19 +145,17 @@ export default function HomeScreen() {
 
   const finalizarViaje = async () => {
     setEnViaje(false);
+    api.usuarios.updateLocation(userLocation.latitude, userLocation.longitude).catch(() => {});
+
+    const origen = origenViajeRef.current ?? userLocation;
     let origenTexto = 'Tu ubicación de origen';
     try {
-      if (userLocation) {
-        const addr = await api.google.reverseGeocode(userLocation.latitude, userLocation.longitude);
-        if (addr) origenTexto = addr;
-      } else {
-        origenTexto = 'Ubicación desconocida';
-      }
+      const addr = await api.google.reverseGeocode(origen.latitude, origen.longitude);
+      if (addr) origenTexto = addr;
     } catch (e) {
       console.warn('Reverse geocode failed', e);
-      origenTexto = 'Tu ubicación de origen';
     }
-    setResumenViaje({ origen: origenTexto, destino: query || 'Destino', duracion: safeliRoute?.durationText || 'N/D' });
+    setResumenViaje({ origen: origenTexto, destino: query || 'Destino', duracion: (activeRouteType === 'safeli' ? safeliRoute?.durationText : googleRoute?.durationText) || 'N/D', });
     setShowFeedbackModal(true);
   };
 
