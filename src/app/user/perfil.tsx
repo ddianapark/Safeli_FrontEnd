@@ -15,6 +15,7 @@ import {
   UIManager,
   View,
 } from 'react-native';
+import ConfiguracionModal, { ConfigItemId } from '../../components/ConfiguracionModal';
 import { useAuth } from '../../context/authContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -24,6 +25,14 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const SAFELI_BLUE = '#1F2B99';
 const INPUT_BG = '#F0F7FF';
 
+const CONFIG_LABELS: Record<Exclude<ConfigItemId, 'logout'>, string> = {
+  permisos: 'Permisos',
+  idioma: 'Idioma',
+  orbit: 'Orbit',
+  ayuda: 'Ayuda',
+  terminos: 'Términos y Condiciones',
+};
+
 export default function ProfileScreen() {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const { user, signOut: logout, updateProfile } = useAuth();
@@ -31,6 +40,7 @@ export default function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
   const [isInfoExpanded, setIsInfoExpanded] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -82,6 +92,23 @@ export default function ProfileScreen() {
 
   const handlePlaceholderPress = (nombreBoton: string) => {
    setAlertMessage(`La sección de "${nombreBoton}" estará disponible próximamente.`);
+  };
+
+  // ConfiguracionModal se cierra solo; acá solo se ejecuta la opción elegida
+  const handleConfigItem = (id: Exclude<ConfigItemId, 'logout'>) => {
+    if (id === 'orbit') {
+      router.push('/orbits/orbits');
+      return;
+    }
+    if (id === 'permisos') {
+      router.push('/user/permisos');
+      return;
+    }
+    if (id === 'idioma') {
+      router.push('/user/idioma');
+      return;
+    }
+    handlePlaceholderPress(CONFIG_LABELS[id]); // Ayuda, Términos: pantallas pendientes
   };
 
   const validateProfile = () => {
@@ -175,7 +202,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.settingsGear}
-          onPress={() => handlePlaceholderPress('Configuración Avanzada')}
+          onPress={() => setShowConfig(true)}
           activeOpacity={0.7}
         >
           <Ionicons name="settings-outline" size={32} color={SAFELI_BLUE} />
@@ -340,6 +367,13 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <ConfiguracionModal
+        visible={showConfig}
+        onClose={() => setShowConfig(false)}
+        onSignOut={logout}
+        onItemPress={handleConfigItem}
+      />
 
       {alertMessage && (
         <View style={styles.customAlertOverlay}>

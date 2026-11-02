@@ -169,7 +169,31 @@ export default function HomeScreen() {
     setShowFeedbackModal(true);
   };
 
-  const cerrarFeedback = () => { setShowFeedbackModal(false); setRating(0); setComentario(''); };
+  // Deja la pantalla de inicio lista para un viaje nuevo (la ubicación actual se conserva)
+  const reiniciarHome = () => {
+    // Feedback
+    setShowFeedbackModal(false);
+    setRating(0);
+    setComentario('');
+    // Búsqueda y rutas
+    setQuery('');
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setDestination(null);
+    setSafeliRoute(null);
+    setGoogleRoute(null);
+    setActiveRouteType('safeli');
+    // Viaje y desvío
+    setEnViaje(false);
+    setDesvioAlert(null);
+    Vibration.cancel();
+    fueraDeRutaRef.current = false;
+    ubicacionInicioRef.current = null;
+    origenViajeRef.current = null;
+  };
+
+  // La X cierra el feedback sin enviarlo y también reinicia el inicio
+  const cerrarFeedback = () => reiniciarHome();
 
   const enviarFeedback = async () => {
     // TODO: el backend todavía no expone un endpoint de feedback
@@ -178,12 +202,7 @@ export default function HomeScreen() {
     // } catch (e) {
     //   console.warn('Error al enviar feedback', e);
     // }
-    cerrarFeedback();
-    setQuery('');
-    setDestination(null);
-    setSafeliRoute(null);
-    setGoogleRoute(null);
-    setEnViaje(false); 
+    reiniciarHome();
     setAlertMessage('¡Llegaste a tu destino con éxito! Gracias por dejar tu feedback.');
   };
 
@@ -210,6 +229,7 @@ export default function HomeScreen() {
           return;
         }
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        console.log('[GPS] lectura inicial:', pos.coords.latitude, pos.coords.longitude, `precisión ±${Math.round(pos.coords.accuracy ?? -1)} m`);
         if (isMounted) {
           setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
           setLoadingLocation(false);
@@ -220,6 +240,7 @@ export default function HomeScreen() {
           (loc) => {
             if (!isMounted) return;
             const nuevaPos = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            console.log('[GPS] actualización:', nuevaPos.latitude, nuevaPos.longitude, `precisión ±${Math.round(loc.coords.accuracy ?? -1)} m`);
             // En simulación, una vez que se movió a mano (o se inició el viaje) el GPS real no pisa la ubicación
             if (SIMULAR_UBICACION && (ubicacionManualRef.current || enViajeRef.current)) return;
             setUserLocation(nuevaPos);

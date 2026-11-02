@@ -6,8 +6,19 @@ import { getErrorMessage, notify } from '../../services/Orbitinvite';
 import { Ionicons } from '@expo/vector-icons';
 import { pickOrbitPhoto } from '../../services/orbitPhoto';
 import MemberMap from '../../components/MemberMap';
+import ConfiguracionModal, { ConfigItemId } from '../../components/ConfiguracionModal';
+import { useAuth } from '../../context/authContext';
+import { useLocationPermission } from '../../services/locationPermission';
 
 const SAFELI_BLUE = '#1A3FA8';
+
+const CONFIG_LABELS: Record<Exclude<ConfigItemId, 'logout'>, string> = {
+  permisos: 'Permisos',
+  idioma: 'Idioma',
+  orbit: 'Orbit',
+  ayuda: 'Ayuda',
+  terminos: 'Términos y Condiciones',
+};
 
 type Member = { id: string; name: string; subtitle?: string; photo?: string; isMe?: boolean };
 type Orbit = { id: string; name: string; photo?: string; members: Member[] };
@@ -40,6 +51,9 @@ export default function OrbitInsideScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === 'string' ? params.id : undefined;
   const router = useRouter();
+  const { signOut } = useAuth();
+  const { locationEnabled } = useLocationPermission();
+  const [showConfig, setShowConfig] = useState(false);
   const [orbit, setOrbit] = useState<Orbit | null>(null);
   const [loading, setLoading] = useState(true);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -99,9 +113,13 @@ export default function OrbitInsideScreen() {
 
   const loadMemberLocation = async (member: Member) => {
     if (!orbit) return;
+    setMemberLoc(null);
+    if (!locationEnabled) {
+      setLocError('Activá el acceso a tu ubicación en Configuración > Permisos para ver la ubicación de los integrantes.');
+      return;
+    }
     setLocLoading(true);
     setLocError(null);
-    setMemberLoc(null);
     try {
       const res = await api.orbits.memberLocation(orbit.id, member.id);
       setMemberLoc({ latitude: res.latitude, longitude: res.longitude, updatedAt: res.updatedAt });
@@ -140,6 +158,23 @@ export default function OrbitInsideScreen() {
     setAlertMessage(`La sección de "${nombreBoton}" estará disponible próximamente.`);
   };
 
+  // ConfiguracionModal se cierra solo; acá solo se ejecuta la opción elegida
+  const handleConfigItem = (item: Exclude<ConfigItemId, 'logout'>) => {
+    if (item === 'orbit') {
+      router.push('/orbits/orbits');
+      return;
+    }
+    if (item === 'permisos') {
+      router.push('/user/permisos');
+      return;
+    }
+    if (item === 'idioma') {
+      router.push('/user/idioma');
+      return;
+    }
+    handlePlaceholderPress(CONFIG_LABELS[item]); // Ayuda, Términos: pantallas pendientes
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
@@ -166,7 +201,7 @@ export default function OrbitInsideScreen() {
       <View style={styles.titleRow}>
         <TouchableOpacity
           style={styles.settingsGear}
-          onPress={() => handlePlaceholderPress('Configuración Avanzada')}
+          onPress={() => setShowConfig(true)}
           activeOpacity={0.7}
         >
           <Ionicons name="settings-outline" size={28} color={SAFELI_BLUE} />
@@ -236,6 +271,13 @@ export default function OrbitInsideScreen() {
           </View>
         </View>
       </Modal>
+
+      <ConfiguracionModal
+        visible={showConfig}
+        onClose={() => setShowConfig(false)}
+        onSignOut={signOut}
+        onItemPress={handleConfigItem}
+      />
 
       {alertMessage && (
         <View style={styles.customAlertOverlay}>
