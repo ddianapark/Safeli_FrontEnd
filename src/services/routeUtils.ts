@@ -47,3 +47,34 @@ export function splitRouteByProgress(userLoc: LatLng, routePoints: LatLng[]) {
 
   return { traveled, remaining };
 }
+// Distancia mínima (en metros) desde un punto hasta una polilínea.
+// Se mide contra los TRAMOS y no solo contra los vértices, para no dar falsos desvíos
+// cuando el usuario está sobre la ruta pero lejos de un vértice (tramos rectos largos).
+export function getDistanceToRouteMeters(point: LatLng, routePoints: LatLng[]): number {
+  if (!routePoints || routePoints.length === 0) return Infinity;
+  if (routePoints.length === 1) return getDistanceMeters(point, routePoints[0]);
+
+  const R = 6371e3;
+  const rad = Math.PI / 180;
+  const cosLat = Math.cos(point.latitude * rad);
+
+  // Proyección plana local (metros) centrada en el punto: precisa para distancias de cientos de metros
+  const toXY = (p: LatLng) => ({
+    x: (p.longitude - point.longitude) * rad * R * cosLat,
+    y: (p.latitude - point.latitude) * rad * R,
+  });
+
+  let min = Infinity;
+  let a = toXY(routePoints[0]);
+  for (let i = 1; i < routePoints.length; i++) {
+    const b = toXY(routePoints[i]);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    // El punto del usuario es el origen (0,0): proyectamos sobre el segmento a-b
+    const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(a.x * dx + a.y * dy) / len2));
+    min = Math.min(min, Math.hypot(a.x + t * dx, a.y + t * dy));
+    a = b;
+  }
+  return min;
+}

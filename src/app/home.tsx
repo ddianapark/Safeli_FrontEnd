@@ -3,7 +3,6 @@ import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   Modal,
   Platform,
@@ -17,6 +16,7 @@ import {
 } from 'react-native';
 import MapRoute from '../components/MapRoute';
 import { api } from '../services/api';
+import { getDistanceToRouteMeters } from '../services/routeUtils';
 import type { LatLng, PlaceSuggestion, RouteResult, RutaSegura } from '../types/route_types';
 
 const LockRating = ({ score, maxScore = 5, color }: { score: number; maxScore?: number; color: string }) => {
@@ -34,17 +34,11 @@ const LockRating = ({ score, maxScore = 5, color }: { score: number; maxScore?: 
   );
 };
 
-const calcularDistanciaMetros = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371e3;
-  const toRad = (valor: number) => (valor * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
+// Mientras no se pueda verificar la ubicación en tiempo real, la ubicación se mueve a mano (tap en el mapa).
+// El GPS real se usa para la posición inicial; apenas se mueve a mano o se inicia un viaje, deja de pisar la ubicación.
+// Poner en false para usar siempre el GPS real.
+const SIMULAR_UBICACION = true;
+const TOLERANCIA_DESVIO_METROS = 50;
 
 export default function HomeScreen() {
   const [query, setQuery] = useState('');
@@ -58,10 +52,13 @@ export default function HomeScreen() {
   const [activeRouteType, setActiveRouteType] = useState<'safeli' | 'google'>('safeli');
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [desvioAlert, setDesvioAlert] = useState<LatLng | null>(null);
   
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rutaActivaRef = useRef<RutaSegura | null>(null);
-  const activeRouteTypeRef = useRef(activeRouteType);
+  const fueraDeRutaRef = useRef(false);
+  const ubicacionInicioRef = useRef<LatLng | null>(null);
+  const ubicacionManualRef = useRef(false); // true cuando la ubicación se movió a mano
+  const enViajeRef = useRef(false);
 
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [rating, setRating] = useState(0);
@@ -74,6 +71,10 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (enViaje) origenViajeRef.current = userLocation;
+  }, [enViaje]);
+
+  useEffect(() => {
+    enViajeRef.current = enViaje;
   }, [enViaje]);
 
   // Envía la ubicación mientras hay viaje activo (máx. 1 vez cada 10 s, sin perder la última posición)
@@ -103,45 +104,54 @@ export default function HomeScreen() {
     return lat >= MIN_LAT && lat <= MAX_LAT && lng >= MIN_LNG && lng <= MAX_LNG;
   };
 
-  useEffect(() => {
-    rutaActivaRef.current = safeliRoute;
-  }, [safeliRoute]);
-
-  useEffect(() => {
-    activeRouteTypeRef.current = activeRouteType;
-  }, [activeRouteType]);
-
-  const alertarDesvio = (ubicacionActual: LatLng) => {
-    Vibration.vibrate([0, 500, 200, 500], false);
-    Alert.alert(
-      "¡Desvío de ruta!",
-      "Te has alejado del camino sugerido. ¿Deseas recalcular la ruta segura desde tu ubicación actual?",
-      [
-        { text: "Ignorar", style: "cancel", onPress: () => Vibration.cancel() },
-        { 
-          text: "Recalcular", 
-          onPress: () => { 
-            Vibration.cancel(); 
-            if (destination) resolveAndRouteDual(destination, ubicacionActual); 
-          } 
-        }
-      ]
-    );
+  const cerrarDesvio = () => {
+    Vibration.cancel();
+    setDesvioAlert(null);
   };
 
-  const verificarDesvio = (ubicacionActual: LatLng, rutaActiva: RutaSegura) => {
-    const TOLERANCIA_METROS = 50;
-    if (!rutaActiva.geometry || !rutaActiva.geometry.coordinates || rutaActiva.geometry.coordinates.length === 0) return;
-    
-    const coordenadasGeoJSON = rutaActiva.geometry.coordinates;
-    const distanciaMinima = Math.min(
-      ...coordenadasGeoJSON.map((coord: [number, number]) => 
-        calcularDistanciaMetros(ubicacionActual.latitude, ubicacionActual.longitude, coord[1], coord[0])
-      )
-    );
-    
-    if (distanciaMinima > TOLERANCIA_METROS) alertarDesvio(ubicacionActual);
+  const recalcularDesdeDesvio = async () => {
+    const origen = desvioAlert;
+    cerrarDesvio();
+    fueraDeRutaRef.current = false;
+    ubicacionInicioRef.current = userLocation; // la ruta nueva arranca acá: no validar este punto
+    if (origen && destination) await resolveAndRouteDual(destination, origen);
   };
+
+  // Valida el desvío cada vez que cambia la ubicación (GPS real o simulada con tap en el mapa).
+  // Solo aplica en viaje y con el Camino Safeli elegido; no con el Camino Rápido.
+  useEffect(() => {
+    if (!enViaje || activeRouteType !== 'safeli' || !safeliRoute?.geometry?.coordinates?.length) {
+      fueraDeRutaRef.current = false;
+      ubicacionInicioRef.current = null;
+      return;
+    }
+
+    const puntos: LatLng[] = safeliRoute.geometry.coordinates.map(([lng, lat]) => ({
+      latitude: lat,
+      longitude: lng,
+    }));
+    const distancia = getDistanceToRouteMeters(userLocation, puntos);
+
+    // Punto de partida del viaje: no se valida (el inicio de la ruta puede quedar corrido
+    // respecto de la ubicación). Solo se valida cuando la ubicación cambia después de iniciar.
+    if (ubicacionInicioRef.current === null) ubicacionInicioRef.current = userLocation;
+    if (userLocation === ubicacionInicioRef.current) {
+      console.log(`[DESVÍO] al iniciar, la ubicación está a ${Math.round(distancia)} m de la ruta`);
+      return;
+    }
+
+    console.log(`[DESVÍO] distancia a la ruta: ${Math.round(distancia)} m (tolerancia ${TOLERANCIA_DESVIO_METROS} m)`);
+    const fuera = distancia > TOLERANCIA_DESVIO_METROS;
+
+    if (fuera && !fueraDeRutaRef.current) {
+      // Alerta una sola vez por salida; se rearma cuando el usuario vuelve al camino
+      fueraDeRutaRef.current = true;
+      if (Platform.OS !== 'web') Vibration.vibrate([0, 500, 200, 500], false);
+      setDesvioAlert(userLocation);
+    } else if (!fuera) {
+      fueraDeRutaRef.current = false;
+    }
+  }, [userLocation, enViaje, activeRouteType, safeliRoute]);
 
   const finalizarViaje = async () => {
     setEnViaje(false);
@@ -178,10 +188,13 @@ export default function HomeScreen() {
   };
 
   const handleMapPress = async (coords: LatLng) => {
+    ubicacionManualRef.current = true;
     setUserLocation(coords);
-    if (destination) {
-      await resolveAndRouteDual(destination, coords);
-    }
+    // En viaje: solo se mueve la ubicación y el efecto de arriba valida el desvío.
+    // (Si recalculáramos la ruta desde el nuevo punto, nunca habría desvío.)
+    if (enViaje) return;
+    // Antes de iniciar: el tap define el nuevo origen y se recalculan las rutas
+    if (destination) await resolveAndRouteDual(destination, coords);
   };
 
   // Tracking GPS continuo sin reinicios al cambiar de pestaña
@@ -196,7 +209,7 @@ export default function HomeScreen() {
           if (isMounted) setLoadingLocation(false);
           return;
         }
-        const pos = await Location.getCurrentPositionAsync({});
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
         if (isMounted) {
           setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
           setLoadingLocation(false);
@@ -207,10 +220,9 @@ export default function HomeScreen() {
           (loc) => {
             if (!isMounted) return;
             const nuevaPos = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            // En simulación, una vez que se movió a mano (o se inició el viaje) el GPS real no pisa la ubicación
+            if (SIMULAR_UBICACION && (ubicacionManualRef.current || enViajeRef.current)) return;
             setUserLocation(nuevaPos);
-            if (rutaActivaRef.current && activeRouteTypeRef.current === 'safeli') {
-              verificarDesvio(nuevaPos, rutaActivaRef.current);
-            }
           }
         );
       } catch (e) {
@@ -397,6 +409,26 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {desvioAlert && (
+        <View style={styles.customAlertOverlay}>
+          <View style={styles.customAlertBox}>
+            <MaterialCommunityIcons name="alert-circle" size={44} color="#EF4444" style={{ marginBottom: 8 }} />
+            <Text style={[styles.customAlertTitle, { color: '#EF4444' }]}>¡Te saliste del camino seguro!</Text>
+            <Text style={styles.customAlertText}>
+              Te alejaste del Camino Safeli. ¿Querés recalcular la ruta segura desde tu ubicación actual?
+            </Text>
+            <View style={styles.desvioButtons}>
+              <TouchableOpacity style={[styles.customAlertButton, styles.desvioBtn, styles.desvioSecondary]} onPress={cerrarDesvio}>
+                <Text style={styles.desvioSecondaryText}>Ignorar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.customAlertButton, styles.desvioBtn]} onPress={recalcularDesdeDesvio}>
+                <Text style={styles.customAlertButtonText}>Recalcular</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       <Modal animationType="slide" transparent visible={showFeedbackModal} onRequestClose={cerrarFeedback}>
         <View style={styles.modalOverlay}>
           <View style={styles.feedbackCard}>
@@ -540,6 +572,10 @@ const styles = StyleSheet.create({
   customAlertText: { fontSize: 15, color: '#4A5568', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   customAlertButton: { backgroundColor: '#1D2DA4', paddingVertical: 12, paddingHorizontal: 30, borderRadius: 10, width: '100%', alignItems: 'center' },
   customAlertButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  desvioButtons: { flexDirection: 'row', gap: 10, width: '100%' },
+  desvioBtn: { flex: 1, width: 'auto' },
+  desvioSecondary: { backgroundColor: '#E2E8F0' },
+  desvioSecondaryText: { color: '#334155', fontSize: 15, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'flex-end' },
   feedbackCard: {
     backgroundColor: '#fff',

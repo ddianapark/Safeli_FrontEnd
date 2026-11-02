@@ -5,7 +5,7 @@ import { useAuth } from '../context/authContext';
 
 const SOS_RED = '#BC0000';
 
-// Número al que llaman TODOS los botones de SOS (reemplaza a los números reales)
+// reemplazar por los números reales, onda borrar esta variable
 const NUMERO_DESTINO = '+5491132043215';
 
 const SERVICIOS = [
@@ -18,11 +18,11 @@ export default function SosScreen() {
   const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
-  // -1 (o vacío) = el usuario no cargó contacto de emergencia
+  // no contacto de emergencia
   const contactoEmergencia =
     user?.contactoEmergencia && user.contactoEmergencia !== -1 ? user.contactoEmergencia : null;
 
-  // Todos los botones llaman a NUMERO_DESTINO en lugar del número real (el parámetro original se ignora)
+  // todos los botones llaman a NUMERO_DESTINO en vez del número real
   const llamar = async (_numeroOriginal: string | number) => {
     setError(null);
     const url = `tel:${NUMERO_DESTINO}`;
