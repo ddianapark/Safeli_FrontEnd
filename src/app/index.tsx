@@ -1,5 +1,5 @@
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Path, Svg } from 'react-native-svg';
 import { useAuth } from '../context/authContext';
+import * as Location from 'expo-location';
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
@@ -27,6 +28,10 @@ export default function LoginScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
 
+  // Estados para el rastreo de ubicación en tiempo real
+  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
   useEffect(() => {
     const message = Array.isArray(params.successMessage)
       ? params.successMessage[0]
@@ -38,6 +43,44 @@ export default function LoginScreen() {
       setSuccessMessage(null);
     }
   }, [params.successMessage]);
+
+  // Suscripción al rastreo de ubicación en tiempo real
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+
+    const startLocationTracking = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setLocationError('Permiso de ubicación denegado');
+          return;
+        }
+
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000, // Actualiza cada 5 segundos
+            distanceInterval: 10, // Actualiza si se desplaza 10 metros
+          },
+          (newLocation) => {
+            setLocation(newLocation);
+            setLocationError(null);
+          }
+        );
+      } catch (error) {
+        console.error('Error al iniciar rastreo:', error);
+        setLocationError('Error al solicitar la ubicación');
+      }
+    };
+
+    startLocationTracking();
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
+  }, []);
 
   const validate = (): boolean => {
     const newErrors: { username?: string; password?: string } = {};
@@ -79,6 +122,25 @@ export default function LoginScreen() {
             <Text style={styles.successBannerText}>{successMessage}</Text>
           </View>
         ) : null}
+
+        {/* Tarjeta con estado de Ubicación en Tiempo Real */}
+        <View style={styles.locationCard}>
+          <Text style={styles.locationTitle}>📍 Rastreo en tiempo real</Text>
+          {locationError ? (
+            <Text style={styles.locationErrorText}>{locationError}</Text>
+          ) : location ? (
+            <View>
+              <Text style={styles.locationText}>
+                Latitud: <Text style={styles.locationBold}>{location.coords.latitude.toFixed(6)}</Text>
+              </Text>
+              <Text style={styles.locationText}>
+                Longitud: <Text style={styles.locationBold}>{location.coords.longitude.toFixed(6)}</Text>
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.locationText}>Obteniendo coordenadas...</Text>
+          )}
+        </View>
 
         <Text style={styles.title}>¡Bienvenido/a!</Text>
 
@@ -193,6 +255,11 @@ const styles = StyleSheet.create({
   header: { backgroundColor: SAFELI_BLUE, paddingTop: 56, paddingBottom: 24, alignItems: 'center' },
   logo: { width: 140, height: 70 },
   body: { flex: 1, paddingHorizontal: 28, paddingTop: 32, paddingBottom: 24 },
+  locationCard: { backgroundColor: '#EBF8FF', borderRadius: 10, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: '#BEE3F8' },
+  locationTitle: { fontSize: 14, fontWeight: '700', color: SAFELI_BLUE, marginBottom: 4 },
+  locationText: { fontSize: 13, color: '#2D3748' },
+  locationBold: { fontWeight: '600' },
+  locationErrorText: { fontSize: 13, color: '#E53E3E' },
   title: { fontSize: 24, fontWeight: '700', color: '#1A202C', textAlign: 'center', marginBottom: 24 },
   successBanner: { backgroundColor: '#DEF7EC', padding: 12, borderRadius: 8, marginBottom: 16 },
   successBannerText: { color: '#03543F', fontSize: 13, textAlign: 'center' },
