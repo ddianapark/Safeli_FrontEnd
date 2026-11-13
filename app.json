@@ -32,7 +32,7 @@
       "package": "com.anonymous.safeli"
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
