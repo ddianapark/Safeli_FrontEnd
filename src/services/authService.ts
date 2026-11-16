@@ -210,6 +210,7 @@ export const authService = {
         if (data.username !== undefined) payload.username = data.username;
         if (data.birthDate !== undefined) payload.birthDate = data.birthDate;
         if (data.nroTelefono !== undefined) payload.nroTelefono = data.nroTelefono;
+        if (data.contactoEmergencia !== undefined) payload.contactoEmergencia = data.contactoEmergencia;
         if (data.foto !== undefined) payload.foto = data.foto; 
 
         response = await apiClient.patch('/auth/perfil', payload);

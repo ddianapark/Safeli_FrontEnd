@@ -24,6 +24,7 @@ export interface UpdateProfileRequest {
   username?: string;
   birthDate?: string;
   nroTelefono?: number | null;
+  contactoEmergencia?: number | null;
   foto?: string | File | { uri: string };
 }
 

@@ -25,6 +25,14 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const SAFELI_BLUE = '#1F2B99';
 const INPUT_BG = '#F0F7FF';
 
+const normalizeEmergencyContact = (value?: number | null) => {
+  if (value === undefined || value === null || value === -1) {
+    return '';
+  }
+
+  return String(value);
+};
+
 const CONFIG_LABELS: Record<Exclude<ConfigItemId, 'logout'>, string> = {
   permisos: 'Permisos',
   idioma: 'Idioma',
@@ -51,6 +59,7 @@ export default function ProfileScreen() {
     email: '',
     birthDate: '',
     nroTelefono: '',
+    contactoEmergencia: '',
   });
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
 
@@ -63,6 +72,7 @@ export default function ProfileScreen() {
         email: user.email ?? '',
         birthDate: user.birthDate ?? (user as any).fechaNacimiento ?? '',
         nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
+        contactoEmergencia: normalizeEmergencyContact(user.contactoEmergencia),
       });
     }
   }, [user]);
@@ -126,6 +136,9 @@ export default function ProfileScreen() {
     if (profileForm.nroTelefono && !/^\d{10}$/.test(profileForm.nroTelefono)) {
       nextErrors.nroTelefono = 'El teléfono debe tener 10 dígitos';
     }
+    if (profileForm.contactoEmergencia && !/^\d{10}$/.test(profileForm.contactoEmergencia)) {
+      nextErrors.contactoEmergencia = 'El contacto de emergencia debe tener 10 dígitos';
+    }
 
     setProfileErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -147,6 +160,11 @@ export default function ProfileScreen() {
       }
       if (profileForm.nroTelefono.trim()) {
         formData.append('nroTelefono', profileForm.nroTelefono.trim());
+      }
+      if (profileForm.contactoEmergencia.trim()) {
+        formData.append('contactoEmergencia', profileForm.contactoEmergencia.trim());
+      } else {
+        formData.append('contactoEmergencia', '-1');
       }
 
       if (selectedImage && !selectedImage.startsWith('http')) {
@@ -173,9 +191,9 @@ export default function ProfileScreen() {
       setIsEditing(false);
 
       if (Platform.OS === 'web') {
-        alert('¡Foto y perfil guardados correctamente!');
+        alert('¡Perfil actualizado correctamente!');
       } else {
-        Alert.alert('¡Éxito!', '¡Foto y perfil guardados correctamente!');
+        Alert.alert('¡Éxito!', '¡Perfil actualizado correctamente!');
       }
     } catch (error) {
       console.error('Error al guardar perfil:', error);
@@ -186,6 +204,20 @@ export default function ProfileScreen() {
       }
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const resetProfileForm = () => {
+    if (user) {
+      setProfileForm({
+        firstName: user.firstName ?? (user as any).nombre ?? '',
+        lastName: user.lastName ?? (user as any).apellido ?? '',
+        username: user.username ?? '',
+        email: user.email ?? '',
+        birthDate: user.birthDate ?? (user as any).fechaNacimiento ?? '',
+        nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
+        contactoEmergencia: normalizeEmergencyContact(user.contactoEmergencia),
+      });
     }
   };
 
@@ -271,16 +303,7 @@ export default function ProfileScreen() {
                   if (isEditing) {
                     setIsEditing(false);
                     setSelectedImage(null);
-                    if (user) {
-                      setProfileForm({
-                        firstName: user.firstName ?? (user as any).nombre ?? '',
-                        lastName: user.lastName ?? (user as any).apellido ?? '',
-                        username: user.username ?? '',
-                        email: user.email ?? '',
-                        birthDate: user.birthDate ?? (user as any).fechaNacimiento ?? '',
-                        nroTelefono: user.nroTelefono ? String(user.nroTelefono) : '',
-                      });
-                    }
+                    resetProfileForm();
                   } else {
                     setIsEditing(true);
                     if (!isInfoExpanded) {
@@ -328,6 +351,16 @@ export default function ProfileScreen() {
                     <TextInput style={styles.input} value={profileForm.nroTelefono} placeholder="Teléfono" keyboardType="number-pad" onChangeText={(text) => setProfileForm((prev) => ({ ...prev, nroTelefono: text }))} />
                     {profileErrors.nroTelefono ? <Text style={styles.errorText}>{profileErrors.nroTelefono}</Text> : null}
                   </View>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      value={profileForm.contactoEmergencia}
+                      placeholder="Contacto de emergencia"
+                      keyboardType="number-pad"
+                      onChangeText={(text) => setProfileForm((prev) => ({ ...prev, contactoEmergencia: text }))}
+                    />
+                    {profileErrors.contactoEmergencia ? <Text style={styles.errorText}>{profileErrors.contactoEmergencia}</Text> : null}
+                  </View>
                   <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} disabled={isSavingProfile}>
                     {isSavingProfile ? <Text style={styles.saveButtonText}>Guardando...</Text> : <Text style={styles.saveButtonText}>Guardar cambios</Text>}
                   </TouchableOpacity>
@@ -340,6 +373,7 @@ export default function ProfileScreen() {
                   <View style={styles.infoCard}><Text style={styles.infoLabel}>Email</Text><Text style={styles.infoValue}>{user?.email || 'Sin completar'}</Text></View>
                   <View style={styles.infoCard}><Text style={styles.infoLabel}>Fecha de nacimiento</Text><Text style={styles.infoValue}>{user?.birthDate || (user as any)?.fechaNacimiento || 'Sin completar'}</Text></View>
                   <View style={styles.infoCard}><Text style={styles.infoLabel}>Teléfono</Text><Text style={styles.infoValue}>{user?.nroTelefono ? String(user.nroTelefono) : 'Sin completar'}</Text></View>
+                  <View style={styles.infoCard}><Text style={styles.infoLabel}>Contacto de emergencia</Text><Text style={styles.infoValue}>{normalizeEmergencyContact(user?.contactoEmergencia) || 'Sin completar'}</Text></View>
                   <View style={styles.infoCard}><Text style={styles.infoLabel}>Contraseña</Text><Text style={styles.infoValue}>••••••••</Text></View>
                   <TouchableOpacity style={styles.changePasswordOption} onPress={() => router.push('/user/change-password')} activeOpacity={0.7}>
                     <View style={styles.changePasswordLeft}><Ionicons name="key-outline" size={18} color={SAFELI_BLUE} /><Text style={styles.changePasswordText}>Cambiar contraseña</Text></View>
