@@ -50,7 +50,15 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Permitir que Safeli acceda a tu ubicación en tiempo real."
+          "locationAlwaysAndWhenInUsePermission": "Permitir que Safeli acceda a tu ubicación en todo momento.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Safeli necesita acceso a tus fotos para que puedas seleccionar y subir imágenes.",
         }
       ],
       "expo-secure-store",
